@@ -15,6 +15,7 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/u16-io/FindSenryu4Discord/config"
 	"github.com/u16-io/FindSenryu4Discord/model"
+	"github.com/u16-io/FindSenryu4Discord/pkg/crypto"
 	"github.com/u16-io/FindSenryu4Discord/pkg/logger"
 
 	// SQLite3 driver for Gorm
@@ -144,8 +145,70 @@ func Migrate() error {
 		return err
 	}
 
+	// Encrypt existing plaintext senryu data if encryption is enabled
+	if crypto.IsEnabled() {
+		if err := migrateEncryptSenryuData(); err != nil {
+			logger.Error("Failed to encrypt existing senryu data", "error", err)
+			return err
+		}
+	}
+
 	logger.Info("Database migration completed")
 
+	return nil
+}
+
+// migrateEncryptSenryuData encrypts existing plaintext senryu records.
+// It checks each record's Kamigo field; if it is not already encrypted,
+// all three content fields are encrypted and the row is updated.
+func migrateEncryptSenryuData() error {
+	const batchSize = 100
+	var total, encrypted int
+
+	for offset := 0; ; offset += batchSize {
+		var senryus []model.Senryu
+		if err := DB.Order("id ASC").Offset(offset).Limit(batchSize).Find(&senryus).Error; err != nil {
+			return err
+		}
+		if len(senryus) == 0 {
+			break
+		}
+
+		for i := range senryus {
+			total++
+			s := &senryus[i]
+
+			if crypto.IsEncrypted(s.Kamigo) {
+				continue
+			}
+
+			kamigo, err := crypto.Encrypt(s.Kamigo)
+			if err != nil {
+				return err
+			}
+			nakasichi, err := crypto.Encrypt(s.Nakasichi)
+			if err != nil {
+				return err
+			}
+			simogo, err := crypto.Encrypt(s.Simogo)
+			if err != nil {
+				return err
+			}
+
+			if err := DB.Model(s).Updates(map[string]interface{}{
+				"kamigo":    kamigo,
+				"nakasichi": nakasichi,
+				"simogo":    simogo,
+			}).Error; err != nil {
+				return err
+			}
+			encrypted++
+		}
+	}
+
+	if encrypted > 0 {
+		logger.Info("Encrypted existing senryu data", "encrypted", encrypted, "total", total)
+	}
 	return nil
 }
 
