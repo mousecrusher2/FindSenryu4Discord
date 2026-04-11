@@ -20,12 +20,13 @@ var (
 
 // Config holds all configuration
 type Config struct {
-	Discord  DiscordConfig  `koanf:"discord"`
-	Database DatabaseConfig `koanf:"database"`
-	Log      LogConfig      `koanf:"log"`
-	Admin    AdminConfig    `koanf:"admin"`
-	Server   ServerConfig   `koanf:"server"`
-	Backup   BackupConfig   `koanf:"backup"`
+	Discord    DiscordConfig    `koanf:"discord"`
+	Database   DatabaseConfig   `koanf:"database"`
+	Log        LogConfig        `koanf:"log"`
+	Admin      AdminConfig      `koanf:"admin"`
+	Server     ServerConfig     `koanf:"server"`
+	Backup     BackupConfig     `koanf:"backup"`
+	Encryption EncryptionConfig `koanf:"encryption"`
 }
 
 // DiscordConfig holds Discord-related configuration
@@ -68,6 +69,11 @@ type BackupConfig struct {
 	IntervalHour int    `koanf:"interval_hour"` // Backup interval in hours
 	Path         string `koanf:"path"`          // Backup directory path
 	MaxBackups   int    `koanf:"max_backups"`   // Maximum number of backups to keep
+}
+
+// EncryptionConfig holds encryption configuration for senryu data
+type EncryptionConfig struct {
+	Key string `koanf:"key"` // Hex-encoded 32-byte AES-256 key (empty = disabled)
 }
 
 // Load loads configuration from file and environment variables
