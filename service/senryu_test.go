@@ -457,6 +457,3 @@ func TestGetRanking_暗号化有効時でも集計できる(t *testing.T) {
 		t.Errorf("expected author1, got %s", ranks[0].AuthorId)
 	}
 }
-
-// suppress unused import lint for strings
-var _ = strings.Contains

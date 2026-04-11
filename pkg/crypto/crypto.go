@@ -17,9 +17,8 @@ var (
 	gcm     cipher.AEAD
 	enabled bool
 
-	ErrNotInitialized = errors.New("crypto: not initialized")
-	ErrInvalidKey     = errors.New("crypto: key must be 64 hex characters (32 bytes)")
-	ErrDecryptFailed  = errors.New("crypto: decryption failed")
+	ErrInvalidKey    = errors.New("crypto: key must be 64 hex characters (32 bytes)")
+	ErrDecryptFailed = errors.New("crypto: decryption failed")
 )
 
 // Init initializes the encryption module with a hex-encoded 32-byte key.
@@ -69,9 +68,6 @@ func Encrypt(plaintext string) (string, error) {
 	if !enabled {
 		return plaintext, nil
 	}
-	if gcm == nil {
-		return "", ErrNotInitialized
-	}
 
 	nonce := make([]byte, gcm.NonceSize())
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
@@ -86,9 +82,6 @@ func Encrypt(plaintext string) (string, error) {
 func Decrypt(encoded string) (string, error) {
 	if !enabled {
 		return encoded, nil
-	}
-	if gcm == nil {
-		return "", ErrNotInitialized
 	}
 
 	data, err := base64.StdEncoding.DecodeString(encoded)
