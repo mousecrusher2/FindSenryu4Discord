@@ -1,10 +1,17 @@
 package db
 
 import (
+	"embed"
 	"errors"
 	"os"
 	"sync"
 
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database"
+	pgmigrate "github.com/golang-migrate/migrate/v4/database/postgres"
+	sqlitemigrate "github.com/golang-migrate/migrate/v4/database/sqlite3"
+	"github.com/golang-migrate/migrate/v4/source"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/jinzhu/gorm"
 	"github.com/u16-io/FindSenryu4Discord/config"
 	"github.com/u16-io/FindSenryu4Discord/model"
@@ -20,6 +27,12 @@ var (
 	DB   *gorm.DB
 	once sync.Once
 )
+
+//go:embed migrations/sqlite3/*.sql
+var sqliteMigrations embed.FS
+
+//go:embed migrations/postgres/*.sql
+var postgresMigrations embed.FS
 
 // Init initializes the database connection
 func Init() error {
@@ -86,44 +99,53 @@ func initDB() error {
 	return nil
 }
 
-// Migrate runs all schema and data migrations.
+// Migrate runs all schema and data migrations using golang-migrate.
+// SQL migration files are embedded per dialect (sqlite3/postgres).
 // It must be called after Init().
 func Migrate() error {
 	if DB == nil {
 		return errors.New("database not initialized; call Init() first")
 	}
 
-	// Auto migrate
-	if err := DB.AutoMigrate(&model.Senryu{}, &model.MutedChannel{}, &model.DetectionOptOut{}, &model.GuildChannelTypeSetting{}).Error; err != nil {
-		logger.Error("Failed to migrate database", "error", err)
+	conf := config.GetConf()
+	sqlDB := DB.DB()
+
+	var sourceDriver source.Driver
+	var dbDriver database.Driver
+	var driverName string
+	var err error
+
+	switch conf.Database.Driver {
+	case "postgres":
+		sourceDriver, err = iofs.New(postgresMigrations, "migrations/postgres")
+		if err != nil {
+			return err
+		}
+		dbDriver, err = pgmigrate.WithInstance(sqlDB, &pgmigrate.Config{})
+		driverName = "postgres"
+	default:
+		sourceDriver, err = iofs.New(sqliteMigrations, "migrations/sqlite3")
+		if err != nil {
+			return err
+		}
+		dbDriver, err = sqlitemigrate.WithInstance(sqlDB, &sqlitemigrate.Config{})
+		driverName = "sqlite3"
+	}
+	if err != nil {
 		return err
 	}
 
-	// Add composite index for GetThreeRandomSenryus query performance
-	if err := DB.Exec("CREATE INDEX IF NOT EXISTS idx_senryus_server_spoiler ON senryus(server_id, spoiler)").Error; err != nil {
-		logger.Warn("Failed to create composite index idx_senryus_server_spoiler", "error", err)
+	m, err := migrate.NewWithInstance("iofs", sourceDriver, driverName, dbDriver)
+	if err != nil {
+		return err
 	}
 
-	// Backfill NULL spoiler values to false
-	if err := migrateSpoilerColumn(); err != nil {
-		logger.Error("Failed to migrate spoiler column", "error", err)
+	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		return err
 	}
 
 	logger.Info("Database migration completed")
 
-	return nil
-}
-
-// migrateSpoilerColumn backfills NULL spoiler values to false.
-func migrateSpoilerColumn() error {
-	result := DB.Exec("UPDATE senryus SET spoiler = false WHERE spoiler IS NULL")
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected > 0 {
-		logger.Info("Backfilled NULL spoiler values", "rows", result.RowsAffected)
-	}
 	return nil
 }
 
