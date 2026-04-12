@@ -63,13 +63,13 @@ var (
 		},
 		{
 			Name:        "delete",
-			Description: "自分の川柳を削除します",
+			Description: "指定ユーザーの川柳を削除します",
 			Options: []*discordgo.ApplicationCommandOption{
 				{
 					Type:        discordgo.ApplicationCommandOptionUser,
 					Name:        "user",
-					Description: "削除対象のユーザー（管理者のみ）",
-					Required:    false,
+					Description: "削除対象のユーザー",
+					Required:    true,
 				},
 			},
 		},
@@ -481,6 +481,8 @@ func handleComponentInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 		commands.HandleDeleteConfirm(s, i)
 	case customID == commands.DeleteCancelCustomID:
 		commands.HandleDeleteCancel(s, i)
+	case strings.HasPrefix(customID, commands.DeletePagePrefix):
+		commands.HandleDeletePage(s, i)
 	case strings.HasPrefix(customID, commands.ContactReplyPrefix):
 		commands.HandleContactReplyButton(s, i)
 	case strings.HasPrefix(customID, commands.ChannelTogglePrefix):
