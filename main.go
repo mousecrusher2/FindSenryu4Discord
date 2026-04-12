@@ -420,6 +420,8 @@ func guildCreate(s *discordgo.Session, g *discordgo.GuildCreate) {
 	metrics.SetConnectedGuilds(countAllGuilds())
 	if !botReady.Load() {
 		logger.Debug("Guild cache", "name", g.Name, "id", g.ID)
+		// Register existing guilds so reconnect doesn't trigger welcome messages
+		commands.MarkGuildWelcomeSent(g.ID)
 		// Debounce: reset timer on each GUILD_CREATE during cache burst.
 		// When no more events arrive within 5s, mark as ready.
 		if t := guildCacheTimer.Load(); t != nil {
@@ -447,11 +449,15 @@ func guildCreate(s *discordgo.Session, g *discordgo.GuildCreate) {
 	if adminNotifier != nil {
 		adminNotifier.NotifyGuildJoin(g.Guild)
 	}
+	go commands.SendWelcomeMessage(s, g)
 }
 
 func guildDelete(s *discordgo.Session, g *discordgo.GuildDelete) {
 	logger.Info("Left guild", "id", g.ID)
 	metrics.SetConnectedGuilds(countAllGuilds())
+
+	// Clear welcome-sent flag so re-invitation triggers a new welcome message
+	commands.ClearGuildWelcomeSent(g.ID)
 
 	// Clean up guild data
 	senryuCount, err := service.DeleteSenryuByServer(g.ID)
