@@ -672,13 +672,7 @@ func handleRankCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		if err != nil {
 			continue
 		}
-		displayName := member.Nick
-		if displayName == "" {
-			displayName = member.User.GlobalName
-		}
-		if displayName == "" {
-			displayName = member.User.Username
-		}
+		displayName := resolveDisplayName(member)
 		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
 			Name:   fmt.Sprintf("%s 第%d位: %d回", medals[rank.Rank-1], rank.Rank, rank.Count),
 			Value:  displayName,
@@ -736,13 +730,7 @@ func handleYomeYomuna(m *discordgo.MessageCreate, s *discordgo.Session) bool {
 				if err != nil {
 					authorName = "<@" + senryu.AuthorID + ">"
 				} else {
-					authorName = member.Nick
-					if authorName == "" {
-						authorName = member.User.GlobalName
-					}
-					if authorName == "" {
-						authorName = member.User.Username
-					}
+					authorName = resolveDisplayName(member)
 				}
 			}
 			var reply string
@@ -762,6 +750,18 @@ func handleYomeYomuna(m *discordgo.MessageCreate, s *discordgo.Session) bool {
 		return true
 	}
 	return false
+}
+
+// resolveDisplayName returns the best display name for a guild member,
+// preferring Nick > GlobalName > Username.
+func resolveDisplayName(member *discordgo.Member) string {
+	if member.Nick != "" {
+		return member.Nick
+	}
+	if member.User.GlobalName != "" {
+		return member.User.GlobalName
+	}
+	return member.User.Username
 }
 
 // isParentChannelMuted checks if the parent channel of a thread is muted.
@@ -884,11 +884,7 @@ func getWriters(senryus []model.Senryu, guildID string, session *discordgo.Sessi
 		if err != nil {
 			continue
 		}
-		if member.Nick != "" {
-			writers = append(writers, member.Nick)
-		} else {
-			writers = append(writers, member.User.Username)
-		}
+		writers = append(writers, resolveDisplayName(member))
 	}
 	return sliceUnique(writers)
 }
