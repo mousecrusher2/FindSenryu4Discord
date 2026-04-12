@@ -84,9 +84,24 @@ func HandleContactCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
 					Placeholder: "カテゴリを選択してください",
 					Options: []discordgo.SelectMenuOption{
 						{
-							Label:       "よくある質問",
-							Value:       "faq",
-							Description: "FAQページで解決策を確認する",
+							Label: "川柳が検出されない・精度が悪い",
+							Value: "faq_detection",
+						},
+						{
+							Label: "短歌（5-7-5-7-7）は検出されますか？",
+							Value: "faq_tanka",
+						},
+						{
+							Label: "個人チャット（DM）でBotが反応しません",
+							Value: "faq_dm",
+						},
+						{
+							Label: "コマンドで「アプリケーションが応答しませんでした」と表示される",
+							Value: "faq_command_error",
+						},
+						{
+							Label: "破調（字余り・字足らず）に対応してほしい",
+							Value: "faq_hachou",
 						},
 						{
 							Label:       "その他のお問い合わせ",
@@ -116,12 +131,14 @@ func HandleContactCategorySelect(s *discordgo.Session, i *discordgo.InteractionC
 		return
 	}
 
-	switch values[0] {
-	case "faq":
+	selected := values[0]
+
+	switch {
+	case strings.HasPrefix(selected, "faq_"):
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: "よくある質問はこちらをご確認ください。",
+				Content: "こちらのFAQページで解決策をご確認ください。",
 				Components: []discordgo.MessageComponent{
 					discordgo.ActionsRow{
 						Components: []discordgo.MessageComponent{
@@ -137,7 +154,7 @@ func HandleContactCategorySelect(s *discordgo.Session, i *discordgo.InteractionC
 			},
 		})
 
-	case "other":
+	case selected == "other":
 		userID := getUserID(i)
 
 		// クールダウンチェック
