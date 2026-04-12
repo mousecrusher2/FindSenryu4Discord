@@ -32,4 +32,5 @@ type GuildChannelTypeSetting struct {
 type DetectionOptOut struct {
 	ServerID string `gorm:"primaryKey"`
 	UserID   string `gorm:"primaryKey"`
+	SetBy    string `gorm:"column:set_by;not null;default:'self'"`
 }
