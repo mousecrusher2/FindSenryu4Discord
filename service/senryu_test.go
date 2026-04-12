@@ -642,6 +642,75 @@ func TestCountSenryusByAuthor_別ユーザーは含まない(t *testing.T) {
 	}
 }
 
+func TestGetServerStats_正常系(t *testing.T) {
+	setupSenryuTestDB(t)
+	crypto.Init("")
+	seedSenryus(t, "guild1", "user1", 3)
+	seedSenryus(t, "guild1", "user2", 2)
+
+	stats, err := GetServerStats("guild1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if stats.TotalSenryus != 5 {
+		t.Errorf("TotalSenryus = %d, want 5", stats.TotalSenryus)
+	}
+	if stats.UniqueAuthors != 2 {
+		t.Errorf("UniqueAuthors = %d, want 2", stats.UniqueAuthors)
+	}
+}
+
+func TestGetServerStats_川柳が0件(t *testing.T) {
+	setupSenryuTestDB(t)
+	crypto.Init("")
+
+	stats, err := GetServerStats("guild1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if stats.TotalSenryus != 0 {
+		t.Errorf("TotalSenryus = %d, want 0", stats.TotalSenryus)
+	}
+	if stats.UniqueAuthors != 0 {
+		t.Errorf("UniqueAuthors = %d, want 0", stats.UniqueAuthors)
+	}
+}
+
+func TestGetServerStats_別サーバーの川柳は含まない(t *testing.T) {
+	setupSenryuTestDB(t)
+	crypto.Init("")
+	seedSenryus(t, "guild1", "user1", 3)
+	seedSenryus(t, "guild2", "user2", 5)
+
+	stats, err := GetServerStats("guild1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if stats.TotalSenryus != 3 {
+		t.Errorf("TotalSenryus = %d, want 3", stats.TotalSenryus)
+	}
+	if stats.UniqueAuthors != 1 {
+		t.Errorf("UniqueAuthors = %d, want 1", stats.UniqueAuthors)
+	}
+}
+
+func TestGetServerStats_同一ユーザーが複数句(t *testing.T) {
+	setupSenryuTestDB(t)
+	crypto.Init("")
+	seedSenryus(t, "guild1", "user1", 7)
+
+	stats, err := GetServerStats("guild1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if stats.TotalSenryus != 7 {
+		t.Errorf("TotalSenryus = %d, want 7", stats.TotalSenryus)
+	}
+	if stats.UniqueAuthors != 1 {
+		t.Errorf("UniqueAuthors = %d, want 1", stats.UniqueAuthors)
+	}
+}
+
 func TestGetLastSenryu_最後の川柳を返す(t *testing.T) {
 	setupSenryuTestDB(t)
 	if err := crypto.Init(""); err != nil {
