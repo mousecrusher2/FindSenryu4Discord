@@ -246,6 +246,45 @@ func GetRecentSenryusByAuthor(serverID, authorID string, limit int) ([]model.Sen
 	return senryus, nil
 }
 
+// GetSenryusByAuthorPaged returns a page of senryus by author, ordered by ID desc.
+func GetSenryusByAuthorPaged(serverID, authorID string, limit, offset int) ([]model.Senryu, error) {
+	metrics.RecordDatabaseOperation("get_senryus_by_author_paged")
+
+	var senryus []model.Senryu
+	if err := db.DB.Where("server_id = ? AND author_id = ?", serverID, authorID).
+		Order("id DESC").Limit(limit).Offset(offset).Find(&senryus).Error; err != nil {
+		metrics.RecordError("database")
+		logger.Warn("Failed to get senryus by author paged",
+			"error", err,
+			"server_id", serverID,
+			"author_id", authorID,
+		)
+		return nil, errors.Wrap(err, "failed to get senryus by author paged")
+	}
+
+	return senryus, nil
+}
+
+// CountSenryusByAuthor returns the total number of senryus by author in a server.
+func CountSenryusByAuthor(serverID, authorID string) (int, error) {
+	metrics.RecordDatabaseOperation("count_senryus_by_author")
+
+	var count int
+	if err := db.DB.Model(&model.Senryu{}).
+		Where("server_id = ? AND author_id = ?", serverID, authorID).
+		Count(&count).Error; err != nil {
+		metrics.RecordError("database")
+		logger.Warn("Failed to count senryus by author",
+			"error", err,
+			"server_id", serverID,
+			"author_id", authorID,
+		)
+		return 0, errors.Wrap(err, "failed to count senryus by author")
+	}
+
+	return count, nil
+}
+
 // GetSenryuByID returns a senryu by ID within a server
 func GetSenryuByID(id int, serverID string) (*model.Senryu, error) {
 	metrics.RecordDatabaseOperation("get_senryu_by_id")
