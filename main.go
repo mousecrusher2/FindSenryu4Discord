@@ -94,6 +94,37 @@ var (
 					Name:        "status",
 					Description: "現在の川柳検出設定を表示します",
 				},
+				{
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Name:        "ban",
+					Description: "指定ユーザーの川柳検出を無効化します（管理者専用）",
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:        discordgo.ApplicationCommandOptionUser,
+							Name:        "user",
+							Description: "対象ユーザー",
+							Required:    true,
+						},
+					},
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Name:        "unban",
+					Description: "指定ユーザーの川柳検出無効化を解除します（管理者専用）",
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:        discordgo.ApplicationCommandOptionUser,
+							Name:        "user",
+							Description: "対象ユーザー",
+							Required:    true,
+						},
+					},
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Name:        "list",
+					Description: "川柳検出無効化ユーザー一覧を表示します（管理者専用）",
+				},
 			},
 		},
 	}
