@@ -447,6 +447,7 @@ func guildCreate(s *discordgo.Session, g *discordgo.GuildCreate) {
 	if adminNotifier != nil {
 		adminNotifier.NotifyGuildJoin(g.Guild)
 	}
+	go commands.SendWelcomeMessage(s, g)
 }
 
 func guildDelete(s *discordgo.Session, g *discordgo.GuildDelete) {
