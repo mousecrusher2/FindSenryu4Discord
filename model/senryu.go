@@ -34,3 +34,9 @@ type DetectionOptOut struct {
 	UserID   string `gorm:"primaryKey"`
 	SetBy    string `gorm:"column:set_by;not null;default:'self'"`
 }
+
+// Metadata is a key-value store for bot-wide settings.
+type Metadata struct {
+	Key   string `gorm:"primaryKey;column:key"`
+	Value string `gorm:"column:value;not null"`
+}

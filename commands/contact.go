@@ -10,23 +10,39 @@ import (
 	"github.com/u16-io/FindSenryu4Discord/config"
 	"github.com/u16-io/FindSenryu4Discord/pkg/logger"
 	"github.com/u16-io/FindSenryu4Discord/pkg/metrics"
+	"github.com/u16-io/FindSenryu4Discord/service"
 )
 
 const (
-	ContactModalCustomID  = "contact_modal"
-	ContactSubjectInputID = "contact_subject"
-	ContactMessageInputID = "contact_message"
-	ContactReplyPrefix    = "contact_reply:"
-	ReplyModalPrefix      = "reply_modal:"
-	ReplyMessageInputID   = "reply_message"
-	contactCooldown       = 5 * time.Minute
+	ContactModalCustomID    = "contact_modal"
+	ContactSubjectInputID   = "contact_subject"
+	ContactMessageInputID   = "contact_message"
+	ContactReplyPrefix      = "contact_reply:"
+	ReplyModalPrefix        = "reply_modal:"
+	ReplyMessageInputID     = "reply_message"
+	ContactCategoryCustomID = "contact_category"
+	contactCooldown         = 5 * time.Minute
+	contactFaqURL           = "https://senryu-bot.u16.io/faq"
 )
 
 var contactCooldowns sync.Map // userID -> time.Time
 
-// HandleContactCommand handles the /contact slash command
+// HandleContactCommand handles the /contact slash command.
+// Shows an ephemeral guide message with a category SelectMenu.
 func HandleContactCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	metrics.RecordCommandExecuted("contact")
+
+	// DM防止
+	if i.GuildID == "" {
+		respondEphemeral(s, i, "このコマンドはサーバー内でのみ使用できます")
+		return
+	}
+
+	// サーバー管理者チェック（2層防御）
+	if !isServerAdmin(i) {
+		respondEphemeral(s, i, "このコマンドはサーバー管理者のみ使用できます")
+		return
+	}
 
 	userID := getUserID(i)
 
@@ -42,40 +58,154 @@ func HandleContactCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
 		}
 	}
 
-	// モーダル表示
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseModal,
-		Data: &discordgo.InteractionResponseData{
-			CustomID: ContactModalCustomID,
-			Title:    "お問い合わせ",
+	// Embed構築
+	description := "お困りの内容に近いカテゴリを選択してください。\n該当するものがない場合は「その他のお問い合わせ」からメッセージを送信できます。"
+
+	additionalMessage, err := service.GetContactAdditionalMessage()
+	if err != nil {
+		logger.Error("Failed to get contact additional message", "error", err)
+	}
+	if additionalMessage != "" {
+		description += "\n\n📌 " + additionalMessage
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Title:       "お問い合わせ",
+		Description: description,
+		Color:       0x5865F2,
+		Footer: &discordgo.MessageEmbedFooter{
+			Text: "💡 Botの動作に問題がある場合は /doctor コマンドもお試しください",
+		},
+	}
+
+	// SelectMenu構築
+	components := []discordgo.MessageComponent{
+		discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{
-				discordgo.ActionsRow{
-					Components: []discordgo.MessageComponent{
-						discordgo.TextInput{
-							CustomID:    ContactSubjectInputID,
-							Label:       "件名",
-							Style:       discordgo.TextInputShort,
-							Placeholder: "件名を入力してください",
-							Required:    true,
-							MaxLength:   100,
+				discordgo.SelectMenu{
+					CustomID:    ContactCategoryCustomID,
+					Placeholder: "カテゴリを選択してください",
+					Options: []discordgo.SelectMenuOption{
+						{
+							Label: "川柳が検出されない・精度が悪い",
+							Value: "faq_detection",
 						},
-					},
-				},
-				discordgo.ActionsRow{
-					Components: []discordgo.MessageComponent{
-						discordgo.TextInput{
-							CustomID:    ContactMessageInputID,
-							Label:       "内容（送信前に /doctor コマンドもお試しください）",
-							Style:       discordgo.TextInputParagraph,
-							Placeholder: "川柳が検出されない場合は、まず /doctor コマンドで診断をお試しください。権限やチャンネル設定の問題を自動で確認できます。",
-							Required:    true,
-							MaxLength:   2000,
+						{
+							Label: "短歌（5-7-5-7-7）は検出されますか？",
+							Value: "faq_tanka",
+						},
+						{
+							Label: "個人チャット（DM）でBotが反応しません",
+							Value: "faq_dm",
+						},
+						{
+							Label: "コマンドで「アプリケーションが応答しませんでした」と表示される",
+							Value: "faq_command_error",
+						},
+						{
+							Label: "破調（字余り・字足らず）に対応してほしい",
+							Value: "faq_hachou",
+						},
+						{
+							Label:       "その他のお問い合わせ",
+							Value:       "other",
+							Description: "Bot管理者にメッセージを送信する",
 						},
 					},
 				},
 			},
 		},
+	}
+
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Embeds:     []*discordgo.MessageEmbed{embed},
+			Components: components,
+			Flags:      discordgo.MessageFlagsEphemeral,
+		},
 	})
+}
+
+// HandleContactCategorySelect handles the category SelectMenu interaction.
+func HandleContactCategorySelect(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	values := i.MessageComponentData().Values
+	if len(values) == 0 {
+		return
+	}
+
+	selected := values[0]
+
+	switch {
+	case strings.HasPrefix(selected, "faq_"):
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "こちらのFAQページで解決策をご確認ください。",
+				Components: []discordgo.MessageComponent{
+					discordgo.ActionsRow{
+						Components: []discordgo.MessageComponent{
+							discordgo.Button{
+								Label: "よくある質問 (FAQ)",
+								Style: discordgo.LinkButton,
+								URL:   contactFaqURL,
+							},
+						},
+					},
+				},
+				Flags: discordgo.MessageFlagsEphemeral,
+			},
+		})
+
+	case selected == "other":
+		userID := getUserID(i)
+
+		// クールダウンチェック
+		if last, ok := contactCooldowns.Load(userID); ok {
+			lastTime := last.(time.Time)
+			remaining := contactCooldown - time.Since(lastTime)
+			if remaining > 0 {
+				minutes := int(remaining.Minutes())
+				seconds := int(remaining.Seconds()) % 60
+				respondEphemeral(s, i, fmt.Sprintf("お問い合わせのクールダウン中です。あと %d分%d秒 お待ちください", minutes, seconds))
+				return
+			}
+		}
+
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseModal,
+			Data: &discordgo.InteractionResponseData{
+				CustomID: ContactModalCustomID,
+				Title:    "お問い合わせ",
+				Components: []discordgo.MessageComponent{
+					discordgo.ActionsRow{
+						Components: []discordgo.MessageComponent{
+							discordgo.TextInput{
+								CustomID:    ContactSubjectInputID,
+								Label:       "件名",
+								Style:       discordgo.TextInputShort,
+								Placeholder: "件名を入力してください",
+								Required:    true,
+								MaxLength:   100,
+							},
+						},
+					},
+					discordgo.ActionsRow{
+						Components: []discordgo.MessageComponent{
+							discordgo.TextInput{
+								CustomID:    ContactMessageInputID,
+								Label:       "内容",
+								Style:       discordgo.TextInputParagraph,
+								Placeholder: "お問い合わせ内容を入力してください",
+								Required:    true,
+								MaxLength:   2000,
+							},
+						},
+					},
+				},
+			},
+		})
+	}
 }
 
 // HandleContactModalSubmit handles the contact modal submission
