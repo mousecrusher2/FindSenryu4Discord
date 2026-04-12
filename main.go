@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+	"unicode"
 
 	"github.com/cockroachdb/errors"
 	"github.com/u16-io/FindSenryu4Discord/commands"
@@ -538,8 +539,12 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			if spoiler {
 				content = stripSpoilerMarkers(content)
 			}
+			content = stripCodeBlocks(content)
+			if !isJapaneseRich(content) {
+				return
+			}
 			h := findHaikuSafe(content, []int{5, 7, 5})
-			if len(h) != 0 {
+			if len(h) != 0 && !haikuSpansNewline(content, h[0]) {
 				senryu := strings.Split(h[0], " ")
 				created, err := service.CreateSenryu(
 					model.Senryu{
@@ -748,6 +753,17 @@ func findHaikuSafe(content string, rule []int) (result []string) {
 	return haiku.Find(content, rule)
 }
 
+var (
+	reFencedCodeBlock = regexp.MustCompile("(?s)```.*?```")
+	reInlineCode      = regexp.MustCompile("`[^`]+`")
+)
+
+func stripCodeBlocks(s string) string {
+	s = reFencedCodeBlock.ReplaceAllString(s, "")
+	s = reInlineCode.ReplaceAllString(s, "")
+	return s
+}
+
 var reSpoiler = regexp.MustCompile(`\|\|.+?\|\|`)
 
 func containsSpoiler(s string) bool {
@@ -756,6 +772,38 @@ func containsSpoiler(s string) bool {
 
 func stripSpoilerMarkers(s string) string {
 	return strings.ReplaceAll(s, "||", "")
+}
+
+func haikuSpansNewline(content, haikuResult string) bool {
+	if !strings.Contains(content, "\n") {
+		return false
+	}
+	matched := strings.ReplaceAll(haikuResult, " ", "")
+	return !strings.Contains(content, matched)
+}
+
+// japaneseCharRatioThreshold is the minimum ratio of Japanese characters
+// (Hiragana, Katakana, Han) to total non-space characters required for a
+// message to be considered "Japanese-rich" and eligible for senryu detection.
+const japaneseCharRatioThreshold = 0.5
+
+func isJapaneseRich(s string) bool {
+	var total, jp int
+	for _, r := range s {
+		if unicode.IsSpace(r) {
+			continue
+		}
+		total++
+		if unicode.In(r, unicode.Hiragana, unicode.Katakana, unicode.Han) ||
+			r == 'ー' || // Katakana long vowel mark (U+30FC)
+			r == '・' { // Katakana middle dot (U+30FB)
+			jp++
+		}
+	}
+	if total == 0 {
+		return false
+	}
+	return float64(jp)/float64(total) >= japaneseCharRatioThreshold
 }
 
 // isBotPermissionError returns true if the error is a Discord API error
