@@ -1,6 +1,7 @@
 [discord]
 token = ""
 playing = ""
+welcome_enabled = true  # サーバー参加時にウェルカムメッセージを送信するか
 
 [database]
 driver = "sqlite3"  # sqlite3 or postgres

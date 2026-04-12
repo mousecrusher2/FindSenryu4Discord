@@ -31,8 +31,9 @@ type Config struct {
 
 // DiscordConfig holds Discord-related configuration
 type DiscordConfig struct {
-	Token   string `koanf:"token"`
-	Playing string `koanf:"playing"`
+	Token          string `koanf:"token"`
+	Playing        string `koanf:"playing"`
+	WelcomeEnabled *bool  `koanf:"welcome_enabled"`
 }
 
 // DatabaseConfig holds database configuration
@@ -117,6 +118,10 @@ func Load(configPath string) (*Config, error) {
 }
 
 func setDefaults(c *Config) {
+	if c.Discord.WelcomeEnabled == nil {
+		t := true
+		c.Discord.WelcomeEnabled = &t
+	}
 	if c.Database.Driver == "" {
 		c.Database.Driver = "sqlite3"
 	}
@@ -163,6 +168,14 @@ func GetConf() *Config {
 		}
 	}
 	return conf
+}
+
+// IsWelcomeEnabled returns whether the welcome message feature is enabled.
+func (c *DiscordConfig) IsWelcomeEnabled() bool {
+	if c.WelcomeEnabled == nil {
+		return true
+	}
+	return *c.WelcomeEnabled
 }
 
 // Get returns a value from config by key
