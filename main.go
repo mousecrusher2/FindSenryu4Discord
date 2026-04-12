@@ -652,6 +652,11 @@ func handleRankCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
+	stats, statsErr := service.GetServerStats(i.GuildID)
+	if statsErr != nil {
+		logger.Warn("Failed to get server stats", "error", statsErr, "guild_id", i.GuildID)
+	}
+
 	guild, err := s.State.Guild(i.GuildID)
 	if err != nil {
 		guild, err = s.Guild(i.GuildID)
@@ -665,6 +670,13 @@ func handleRankCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		Title:     "サーバー内ランキング",
 		Timestamp: time.Now().Format(time.RFC3339),
 		Fields:    []*discordgo.MessageEmbedField{},
+	}
+	if statsErr == nil {
+		if stats.TotalSenryus == 0 {
+			embed.Description = "まだ誰も詠んでいません"
+		} else {
+			embed.Description = fmt.Sprintf("累計 **%d** 句 / **%d** 人の詠み手", stats.TotalSenryus, stats.UniqueAuthors)
+		}
 	}
 	if guild != nil {
 		embed.Footer = &discordgo.MessageEmbedFooter{
