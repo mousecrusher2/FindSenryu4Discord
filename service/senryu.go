@@ -39,19 +39,26 @@ func encryptSenryuFields(s *model.Senryu) error {
 }
 
 // decryptSenryuFields decrypts the content fields (Kamigo, Nakasichi, Simogo) in place.
+// Plaintext (unencrypted) fields are left as-is.
 func decryptSenryuFields(s *model.Senryu) error {
 	if !crypto.IsEnabled() {
 		return nil
 	}
 	var err error
-	if s.Kamigo, err = crypto.Decrypt(s.Kamigo); err != nil {
-		return errors.Wrap(ErrDecryptFailed, err.Error())
+	if crypto.IsEncrypted(s.Kamigo) {
+		if s.Kamigo, err = crypto.Decrypt(s.Kamigo); err != nil {
+			return errors.Wrap(ErrDecryptFailed, err.Error())
+		}
 	}
-	if s.Nakasichi, err = crypto.Decrypt(s.Nakasichi); err != nil {
-		return errors.Wrap(ErrDecryptFailed, err.Error())
+	if crypto.IsEncrypted(s.Nakasichi) {
+		if s.Nakasichi, err = crypto.Decrypt(s.Nakasichi); err != nil {
+			return errors.Wrap(ErrDecryptFailed, err.Error())
+		}
 	}
-	if s.Simogo, err = crypto.Decrypt(s.Simogo); err != nil {
-		return errors.Wrap(ErrDecryptFailed, err.Error())
+	if crypto.IsEncrypted(s.Simogo) {
+		if s.Simogo, err = crypto.Decrypt(s.Simogo); err != nil {
+			return errors.Wrap(ErrDecryptFailed, err.Error())
+		}
 	}
 	return nil
 }
