@@ -523,8 +523,12 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			if spoiler {
 				content = stripSpoilerMarkers(content)
 			}
+			content = stripCodeBlocks(content)
+			if !isJapaneseRich(content) {
+				return
+			}
 			h := findHaikuSafe(content, []int{5, 7, 5})
-			if len(h) != 0 {
+			if len(h) != 0 && !strings.Contains(h[0], "\n") {
 				senryu := strings.Split(h[0], " ")
 				created, err := service.CreateSenryu(
 					model.Senryu{
