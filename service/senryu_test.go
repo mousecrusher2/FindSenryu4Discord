@@ -644,6 +644,9 @@ func TestCountSenryusByAuthor_別ユーザーは含まない(t *testing.T) {
 
 func TestGetLastSenryu_最後の川柳を返す(t *testing.T) {
 	setupSenryuTestDB(t)
+	if err := crypto.Init(""); err != nil {
+		t.Fatalf("crypto init failed: %v", err)
+	}
 
 	db.DB.Create(&model.Senryu{
 		ServerID: "guild1", AuthorID: "user1",
@@ -676,6 +679,9 @@ func TestGetLastSenryu_最後の川柳を返す(t *testing.T) {
 
 func TestGetLastSenryu_川柳が存在しない場合(t *testing.T) {
 	setupSenryuTestDB(t)
+	if err := crypto.Init(""); err != nil {
+		t.Fatalf("crypto init failed: %v", err)
+	}
 
 	_, err := GetLastSenryu("guild1")
 	if err == nil {
@@ -688,6 +694,9 @@ func TestGetLastSenryu_川柳が存在しない場合(t *testing.T) {
 
 func TestGetLastSenryu_サーバーごとに独立(t *testing.T) {
 	setupSenryuTestDB(t)
+	if err := crypto.Init(""); err != nil {
+		t.Fatalf("crypto init failed: %v", err)
+	}
 
 	db.DB.Create(&model.Senryu{
 		ServerID: "guild1", AuthorID: "user1",
@@ -714,6 +723,9 @@ func TestGetLastSenryu_サーバーごとに独立(t *testing.T) {
 
 func TestGetLastSenryu_スポイラー付き川柳(t *testing.T) {
 	setupSenryuTestDB(t)
+	if err := crypto.Init(""); err != nil {
+		t.Fatalf("crypto init failed: %v", err)
+	}
 
 	db.DB.Create(&model.Senryu{
 		ServerID: "guild1", AuthorID: "user1",
@@ -732,6 +744,9 @@ func TestGetLastSenryu_スポイラー付き川柳(t *testing.T) {
 
 func TestGetLastSenryu_スポイラーなし川柳(t *testing.T) {
 	setupSenryuTestDB(t)
+	if err := crypto.Init(""); err != nil {
+		t.Fatalf("crypto init failed: %v", err)
+	}
 
 	db.DB.Create(&model.Senryu{
 		ServerID: "guild1", AuthorID: "user1",
