@@ -97,6 +97,14 @@ var (
 			Help: "Total number of automatic channel mutes triggered by Bot permission errors",
 		},
 	)
+
+	// WelcomeMessagesSentTotal is the total number of welcome messages sent
+	WelcomeMessagesSentTotal = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "findsenryu_welcome_messages_sent_total",
+			Help: "Total number of welcome messages sent to new guilds",
+		},
+	)
 )
 
 // RecordSenryuDetected records a senryu detection
@@ -149,4 +157,9 @@ func SetOptedOutUsers(count int64) {
 // RecordAutoMute records an automatic channel mute triggered by Bot permission error
 func RecordAutoMute() {
 	AutoMuteTotal.Inc()
+}
+
+// RecordWelcomeMessageSent records a welcome message sent to a new guild
+func RecordWelcomeMessageSent() {
+	WelcomeMessagesSentTotal.Inc()
 }
