@@ -11,6 +11,7 @@ import (
 	"github.com/u16-io/FindSenryu4Discord/pkg/logger"
 	"github.com/u16-io/FindSenryu4Discord/pkg/metrics"
 	"github.com/u16-io/FindSenryu4Discord/pkg/permissions"
+	"github.com/u16-io/FindSenryu4Discord/service"
 )
 
 var (
@@ -47,6 +48,7 @@ func allGuilds() []*discordgo.Guild {
 
 // AdminCommands returns the admin slash commands
 func AdminCommands() []*discordgo.ApplicationCommand {
+	contactMessageMaxLength := 1000
 	return []*discordgo.ApplicationCommand{
 		{
 			Name:        "admin",
@@ -61,6 +63,37 @@ func AdminCommands() []*discordgo.ApplicationCommand {
 					Name:        "backup",
 					Description: "手動バックアップを作成します",
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
+				},
+				{
+					Name:        "contactMessage",
+					Description: "/contactコマンドに表示する追加メッセージを管理します",
+					Type:        discordgo.ApplicationCommandOptionSubCommandGroup,
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Name:        "set",
+							Description: "追加メッセージを設定します",
+							Type:        discordgo.ApplicationCommandOptionSubCommand,
+							Options: []*discordgo.ApplicationCommandOption{
+								{
+									Name:        "message",
+									Description: "表示するメッセージ",
+									Type:        discordgo.ApplicationCommandOptionString,
+									Required:    true,
+									MaxLength:   contactMessageMaxLength,
+								},
+							},
+						},
+						{
+							Name:        "clear",
+							Description: "追加メッセージを削除します",
+							Type:        discordgo.ApplicationCommandOptionSubCommand,
+						},
+						{
+							Name:        "show",
+							Description: "現在の追加メッセージを表示します",
+							Type:        discordgo.ApplicationCommandOptionSubCommand,
+						},
+					},
 				},
 			},
 		},
@@ -90,6 +123,8 @@ func HandleAdminCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		handleStatsCommand(s, i)
 	case "backup":
 		handleBackupCommand(s, i)
+	case "contactMessage":
+		handleContactMessageCommand(s, i, options[0].Options)
 	}
 }
 
@@ -201,6 +236,76 @@ func handleBackupCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
 		Embeds: &[]*discordgo.MessageEmbed{embed},
+	})
+}
+
+func handleContactMessageCommand(s *discordgo.Session, i *discordgo.InteractionCreate, options []*discordgo.ApplicationCommandInteractionDataOption) {
+	if len(options) == 0 {
+		respondError(s, i, "サブコマンドを指定してください")
+		return
+	}
+
+	switch options[0].Name {
+	case "set":
+		handleContactMessageSet(s, i, options[0].Options)
+	case "clear":
+		handleContactMessageClear(s, i)
+	case "show":
+		handleContactMessageShow(s, i)
+	}
+}
+
+func handleContactMessageSet(s *discordgo.Session, i *discordgo.InteractionCreate, options []*discordgo.ApplicationCommandInteractionDataOption) {
+	if len(options) == 0 {
+		respondError(s, i, "メッセージを指定してください")
+		return
+	}
+
+	message := options[0].StringValue()
+	if err := service.SetContactAdditionalMessage(message); err != nil {
+		logger.Error("Failed to set contact additional message", "error", err)
+		respondError(s, i, "追加メッセージの設定に失敗しました")
+		return
+	}
+
+	respondEphemeral(s, i, "追加メッセージを設定しました ✅")
+}
+
+func handleContactMessageClear(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	if err := service.ClearContactAdditionalMessage(); err != nil {
+		logger.Error("Failed to clear contact additional message", "error", err)
+		respondError(s, i, "追加メッセージの削除に失敗しました")
+		return
+	}
+
+	respondEphemeral(s, i, "追加メッセージを削除しました ✅")
+}
+
+func handleContactMessageShow(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	message, err := service.GetContactAdditionalMessage()
+	if err != nil {
+		logger.Error("Failed to get contact additional message", "error", err)
+		respondError(s, i, "追加メッセージの取得に失敗しました")
+		return
+	}
+
+	if message == "" {
+		respondEphemeral(s, i, "追加メッセージは設定されていません")
+		return
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Title:       "現在の追加メッセージ",
+		Description: message,
+		Color:       0x5865F2,
+	}
+
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Embeds: []*discordgo.MessageEmbed{embed},
+			Flags:  discordgo.MessageFlagsEphemeral,
+		},
 	})
 }
 
