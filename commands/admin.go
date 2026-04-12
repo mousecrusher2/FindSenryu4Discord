@@ -65,7 +65,7 @@ func AdminCommands() []*discordgo.ApplicationCommand {
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 				},
 				{
-					Name:        "contactMessage",
+					Name:        "contact-message",
 					Description: "/contactコマンドに表示する追加メッセージを管理します",
 					Type:        discordgo.ApplicationCommandOptionSubCommandGroup,
 					Options: []*discordgo.ApplicationCommandOption{
@@ -123,7 +123,7 @@ func HandleAdminCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		handleStatsCommand(s, i)
 	case "backup":
 		handleBackupCommand(s, i)
-	case "contactMessage":
+	case "contact-message":
 		handleContactMessageCommand(s, i, options[0].Options)
 	}
 }
