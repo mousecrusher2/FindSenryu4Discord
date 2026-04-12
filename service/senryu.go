@@ -14,10 +14,10 @@ import (
 )
 
 var (
-	ErrSenryuNotFound  = errors.New("senryu not found")
-	ErrDatabaseError   = errors.New("database error")
-	ErrEncryptFailed   = errors.New("failed to encrypt senryu fields")
-	ErrDecryptFailed   = errors.New("failed to decrypt senryu fields")
+	ErrSenryuNotFound = errors.New("senryu not found")
+	ErrDatabaseError  = errors.New("database error")
+	ErrEncryptFailed  = errors.New("failed to encrypt senryu fields")
+	ErrDecryptFailed  = errors.New("failed to decrypt senryu fields")
 )
 
 // encryptSenryuFields encrypts the content fields (Kamigo, Nakasichi, Simogo) in place.

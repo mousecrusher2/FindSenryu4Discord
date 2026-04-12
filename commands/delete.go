@@ -94,6 +94,13 @@ func HandleDeletePage(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	guildID := parts[0]
 	targetUserID := parts[1]
+
+	// 権限チェック: ボタン押下者が元のコマンド実行者または管理者であることを確認
+	if getUserID(i) != targetUserID && !isServerAdmin(i) {
+		respondEphemeral(s, i, "他のユーザーの削除操作を行う権限がありません")
+		return
+	}
+
 	page, err := strconv.Atoi(parts[2])
 	if err != nil || page < 0 {
 		respondComponentUpdate(s, i, "無効な操作です")
@@ -130,6 +137,10 @@ func HandleDeletePage(s *discordgo.Session, i *discordgo.InteractionCreate) {
 // buildDeletePage builds the select menu and pagination buttons for a given page.
 // Returns the message content and components. components is nil on error.
 func buildDeletePage(guildID, targetUserID string, page, total int) (string, *[]discordgo.MessageComponent) {
+	if total <= 0 {
+		return "削除できる川柳がありません", nil
+	}
+
 	totalPages := (total + deletePageSize - 1) / deletePageSize
 	if page >= totalPages {
 		page = totalPages - 1
