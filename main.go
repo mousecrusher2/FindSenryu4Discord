@@ -18,6 +18,7 @@ import (
 	"github.com/u16-io/FindSenryu4Discord/model"
 	"github.com/u16-io/FindSenryu4Discord/pkg/adminnotify"
 	"github.com/u16-io/FindSenryu4Discord/pkg/backup"
+	"github.com/u16-io/FindSenryu4Discord/pkg/crypto"
 	"github.com/u16-io/FindSenryu4Discord/pkg/health"
 	"github.com/u16-io/FindSenryu4Discord/pkg/logger"
 	"github.com/u16-io/FindSenryu4Discord/pkg/metrics"
@@ -134,6 +135,16 @@ func main() {
 		"log_level", conf.Log.Level,
 		"db_driver", conf.Database.Driver,
 	)
+
+	// Initialize encryption
+	if err := crypto.Init(conf.Encryption.Key); err != nil {
+		logger.Error("Failed to initialize encryption", "error", err)
+		os.Exit(1)
+	}
+	conf.Encryption.Key = "" // zero out key from config struct
+	if crypto.IsEnabled() {
+		logger.Info("Senryu encryption enabled")
+	}
 
 	// Initialize database
 	if err := db.Init(); err != nil {
