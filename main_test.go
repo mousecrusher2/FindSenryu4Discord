@@ -173,6 +173,37 @@ func TestStripCodeBlocks(t *testing.T) {
 	}
 }
 
+func TestIsJapaneseRich(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		{"全てひらがな", "ふるいけやかわずとびこむ", true},
+		{"全てカタカナ", "フルイケヤカワズトビコム", true},
+		{"全て漢字", "古池蛙飛込水音", true},
+		{"日本語混合", "古池や蛙飛びこむ水の音", true},
+		{"全て英語", "hello world this is a test", false},
+		{"空文字列", "", false},
+		{"スペースのみ", "   ", false},
+		{"日本語50%ちょうど", "あa", true},
+		{"日本語50%未満", "あab", false},
+		{"日本語とスペース混合", "古池や 蛙飛びこむ 水の音", true},
+		{"コードっぽい文字列", "fmt.Println(hello)", false},
+		{"全角英数字は日本語でない", "ＡＢＣＤ", false},
+		{"日本語と記号混合", "古池や！蛙飛びこむ？水の音", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isJapaneseRich(tt.input)
+			if got != tt.want {
+				t.Errorf("isJapaneseRich(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestIsParentChannelMuted_親チャンネルがミュート(t *testing.T) {
 	setupTestDB(t)
 

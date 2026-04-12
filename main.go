@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+	"unicode"
 
 	"github.com/cockroachdb/errors"
 	"github.com/u16-io/FindSenryu4Discord/commands"
@@ -795,6 +796,23 @@ func containsSpoiler(s string) bool {
 
 func stripSpoilerMarkers(s string) string {
 	return strings.ReplaceAll(s, "||", "")
+}
+
+func isJapaneseRich(s string) bool {
+	var total, jp int
+	for _, r := range s {
+		if unicode.IsSpace(r) {
+			continue
+		}
+		total++
+		if unicode.In(r, unicode.Hiragana, unicode.Katakana, unicode.Han) {
+			jp++
+		}
+	}
+	if total == 0 {
+		return false
+	}
+	return float64(jp)/float64(total) >= 0.5
 }
 
 // isBotPermissionError returns true if the error is a Discord API error
