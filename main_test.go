@@ -143,6 +143,36 @@ func TestStripSpoilerMarkers(t *testing.T) {
 	}
 }
 
+func TestStripCodeBlocks(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"フェンスドコードブロック除去", "前文```go\nfmt.Println()\n```後文", "前文後文"},
+		{"インラインコード除去", "変数`x`を使う", "変数を使う"},
+		{"フェンスドとインライン混在", "```code```と`inline`", "と"},
+		{"コードブロックなし", "古池や蛙飛び込む水の音", "古池や蛙飛び込む水の音"},
+		{"空文字列", "", ""},
+		{"複数フェンスドコードブロック", "あ```a```い```b```う", "あいう"},
+		{"複数インラインコード", "`a`と`b`と`c`", "とと"},
+		{"改行を含むフェンスド", "前\n```\nline1\nline2\n```\n後", "前\n\n後"},
+		{"閉じられていないフェンスド", "```未閉じコード", "```未閉じコード"},
+		{"閉じられていないインライン", "`未閉じインライン", "`未閉じインライン"},
+		{"空のインラインコード", "空``です", "空``です"},
+		{"言語指定付きフェンスド", "```python\nprint('hello')\n```", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := stripCodeBlocks(tt.input)
+			if got != tt.want {
+				t.Errorf("stripCodeBlocks(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestIsParentChannelMuted_親チャンネルがミュート(t *testing.T) {
 	setupTestDB(t)
 

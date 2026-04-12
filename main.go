@@ -776,6 +776,17 @@ func findHaikuSafe(content string, rule []int) (result []string) {
 	return haiku.Find(content, rule)
 }
 
+var (
+	reFencedCodeBlock = regexp.MustCompile("(?s)```.*?```")
+	reInlineCode      = regexp.MustCompile("`[^`]+`")
+)
+
+func stripCodeBlocks(s string) string {
+	s = reFencedCodeBlock.ReplaceAllString(s, "")
+	s = reInlineCode.ReplaceAllString(s, "")
+	return s
+}
+
 var reSpoiler = regexp.MustCompile(`\|\|.+?\|\|`)
 
 func containsSpoiler(s string) bool {
