@@ -35,7 +35,7 @@ func ClearGuildWelcomeSent(guildID string) {
 
 func buildWelcomeEmbed() *discordgo.MessageEmbed {
 	return &discordgo.MessageEmbed{
-		Title:       "FindSenryu へようこそ！",
+		Title:       "川柳検出Bot へようこそ！",
 		Description: "このBotはメッセージから川柳（五・七・五）を自動検出してお知らせします。",
 		Color:       0x5865F2,
 		Fields: []*discordgo.MessageEmbedField{
@@ -50,6 +50,10 @@ func buildWelcomeEmbed() *discordgo.MessageEmbed {
 			{
 				Name:  "便利なコマンド",
 				Value: "`/mute` `/unmute` — チャンネルごとの検出ON/OFF\n`/rank` — サーバー内ランキング\n`/detect off` — 自分の検出を無効化\n`/channel` — チャンネルタイプ別の設定\n`/doctor` — Bot動作の診断",
+			},
+			{
+				Name:  "よくある質問",
+				Value: "使い方やトラブルシューティングは [FAQ ページ](https://senryu-bot.u16.io/faq) をご覧ください。",
 			},
 		},
 	}
