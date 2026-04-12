@@ -2,6 +2,7 @@ package commands
 
 import (
 	"github.com/bwmarrin/discordgo"
+	"github.com/cockroachdb/errors"
 	"github.com/u16-io/FindSenryu4Discord/pkg/logger"
 	"github.com/u16-io/FindSenryu4Discord/pkg/metrics"
 	"github.com/u16-io/FindSenryu4Discord/service"
@@ -27,7 +28,11 @@ func HandleDetectCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	switch subCmd {
 	case "on":
-		if err := service.OptInDetection(i.GuildID, userID); err != nil {
+		if err := service.OptInDetection(i.GuildID, userID, false); err != nil {
+			if errors.Is(err, service.ErrAdminBanned) {
+				respondEphemeral(s, i, "管理者によって川柳検出が無効化されています。解除するにはサーバー管理者に連絡してください。")
+				return
+			}
 			logger.Error("Failed to opt in detection", "error", err, "user_id", userID, "guild_id", i.GuildID)
 			respondEphemeral(s, i, "川柳検出の有効化に失敗しました")
 			return
@@ -35,7 +40,7 @@ func HandleDetectCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		respondEphemeral(s, i, "川柳検出を有効にしました ✅")
 
 	case "off":
-		if err := service.OptOutDetection(i.GuildID, userID); err != nil {
+		if err := service.OptOutDetection(i.GuildID, userID, "self"); err != nil {
 			logger.Error("Failed to opt out detection", "error", err, "user_id", userID, "guild_id", i.GuildID)
 			respondEphemeral(s, i, "川柳検出の無効化に失敗しました")
 			return
