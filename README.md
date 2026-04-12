@@ -179,3 +179,7 @@ max_backups = 7
 - **管理者通知** — サーバー参加/脱退通知と日次サマリーを管理チャンネルに送信（脱退時は川柳・オプトアウト設定を自動削除）
 - **ヘルスチェック** — `/health`, `/ready`, `/stats` エンドポイント
 - **Prometheus メトリクス** — `/metrics` エンドポイントで各種メトリクスを公開
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
