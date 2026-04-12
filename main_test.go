@@ -192,6 +192,9 @@ func TestIsJapaneseRich(t *testing.T) {
 		{"コードっぽい文字列", "fmt.Println(hello)", false},
 		{"全角英数字は日本語でない", "ＡＢＣＤ", false},
 		{"日本語と記号混合", "古池や！蛙飛びこむ？水の音", true},
+		{"カタカナ長音符を含む", "コーヒー", true},
+		{"長音符のみ", "ーーーー", true},
+		{"中黒を含むカタカナ", "ワールド・カップ", true},
 	}
 
 	for _, tt := range tests {

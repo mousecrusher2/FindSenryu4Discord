@@ -810,6 +810,11 @@ func haikuSpansNewline(content, haikuResult string) bool {
 	return !strings.Contains(content, matched)
 }
 
+// japaneseCharRatioThreshold is the minimum ratio of Japanese characters
+// (Hiragana, Katakana, Han) to total non-space characters required for a
+// message to be considered "Japanese-rich" and eligible for senryu detection.
+const japaneseCharRatioThreshold = 0.5
+
 func isJapaneseRich(s string) bool {
 	var total, jp int
 	for _, r := range s {
@@ -817,14 +822,16 @@ func isJapaneseRich(s string) bool {
 			continue
 		}
 		total++
-		if unicode.In(r, unicode.Hiragana, unicode.Katakana, unicode.Han) {
+		if unicode.In(r, unicode.Hiragana, unicode.Katakana, unicode.Han) ||
+			r == 'ー' || // Katakana long vowel mark (U+30FC)
+			r == '・' { // Katakana middle dot (U+30FB)
 			jp++
 		}
 	}
 	if total == 0 {
 		return false
 	}
-	return float64(jp)/float64(total) >= 0.5
+	return float64(jp)/float64(total) >= japaneseCharRatioThreshold
 }
 
 // isBotPermissionError returns true if the error is a Discord API error
