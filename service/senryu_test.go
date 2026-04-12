@@ -478,6 +478,7 @@ func seedSenryus(t *testing.T, serverID, authorID string, count int) {
 
 func TestGetSenryusByAuthorPaged_ページネーション(t *testing.T) {
 	setupSenryuTestDB(t)
+	crypto.Init("")
 	seedSenryus(t, "guild1", "user1", 30)
 
 	// 1ページ目（25件）
@@ -512,6 +513,7 @@ func TestGetSenryusByAuthorPaged_ページネーション(t *testing.T) {
 
 func TestGetSenryusByAuthorPaged_降順(t *testing.T) {
 	setupSenryuTestDB(t)
+	crypto.Init("")
 	seedSenryus(t, "guild1", "user1", 5)
 
 	results, err := GetSenryusByAuthorPaged("guild1", "user1", 25, 0)
@@ -528,6 +530,7 @@ func TestGetSenryusByAuthorPaged_降順(t *testing.T) {
 
 func TestGetSenryusByAuthorPaged_該当なし(t *testing.T) {
 	setupSenryuTestDB(t)
+	crypto.Init("")
 
 	results, err := GetSenryusByAuthorPaged("guild1", "user1", 25, 0)
 	if err != nil {
@@ -540,6 +543,7 @@ func TestGetSenryusByAuthorPaged_該当なし(t *testing.T) {
 
 func TestGetSenryusByAuthorPaged_別サーバーの川柳は含まない(t *testing.T) {
 	setupSenryuTestDB(t)
+	crypto.Init("")
 	seedSenryus(t, "guild1", "user1", 5)
 	seedSenryus(t, "guild2", "user1", 3)
 
@@ -554,6 +558,7 @@ func TestGetSenryusByAuthorPaged_別サーバーの川柳は含まない(t *test
 
 func TestGetSenryusByAuthorPaged_別ユーザーの川柳は含まない(t *testing.T) {
 	setupSenryuTestDB(t)
+	crypto.Init("")
 	seedSenryus(t, "guild1", "user1", 5)
 	seedSenryus(t, "guild1", "user2", 3)
 
@@ -568,6 +573,7 @@ func TestGetSenryusByAuthorPaged_別ユーザーの川柳は含まない(t *test
 
 func TestGetSenryusByAuthorPaged_offset超過で空(t *testing.T) {
 	setupSenryuTestDB(t)
+	crypto.Init("")
 	seedSenryus(t, "guild1", "user1", 3)
 
 	results, err := GetSenryusByAuthorPaged("guild1", "user1", 25, 100)

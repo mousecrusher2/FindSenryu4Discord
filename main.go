@@ -57,13 +57,13 @@ var (
 		},
 		{
 			Name:        "delete",
-			Description: "自分の川柳を削除します",
+			Description: "指定ユーザーの川柳を削除します",
 			Options: []*discordgo.ApplicationCommandOption{
 				{
 					Type:        discordgo.ApplicationCommandOptionUser,
 					Name:        "user",
-					Description: "削除対象のユーザー（管理者のみ）",
-					Required:    false,
+					Description: "削除対象のユーザー",
+					Required:    true,
 				},
 			},
 		},

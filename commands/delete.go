@@ -31,18 +31,12 @@ func HandleDeleteCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	userID := getUserID(i)
-	targetUserID := userID
+	targetUserID := i.ApplicationCommandData().Options[0].UserValue(s).ID
 
-	// user オプション確認
-	cmdOptions := i.ApplicationCommandData().Options
-	for _, opt := range cmdOptions {
-		if opt.Name == "user" {
-			if !isServerAdmin(i) {
-				respondError(s, i, "他のユーザーの川柳を削除する権限がありません")
-				return
-			}
-			targetUserID = opt.UserValue(s).ID
-		}
+	// 他人の川柳を削除する場合は管理者権限が必要
+	if targetUserID != userID && !isServerAdmin(i) {
+		respondError(s, i, "他のユーザーの川柳を削除する権限がありません")
+		return
 	}
 
 	// Deferred response (ephemeral)

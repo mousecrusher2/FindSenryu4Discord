@@ -262,6 +262,10 @@ func GetSenryusByAuthorPaged(serverID, authorID string, limit, offset int) ([]mo
 		return nil, errors.Wrap(err, "failed to get senryus by author paged")
 	}
 
+	if err := decryptSenryuSlice(senryus); err != nil {
+		return nil, errors.Wrap(err, "failed to decrypt senryus")
+	}
+
 	return senryus, nil
 }
 
