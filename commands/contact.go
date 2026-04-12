@@ -59,20 +59,23 @@ func HandleContactCommand(s *discordgo.Session, i *discordgo.InteractionCreate) 
 	}
 
 	// Embed構築
-	description := "川柳が検出されない・Botが動かないなどの問題は、まず `/doctor` コマンドで診断をお試しください。\n権限やチャンネル設定の問題を自動で確認できます。"
+	description := "お困りの内容に近いカテゴリを選択してください。\n該当するものがない場合は「その他のお問い合わせ」からメッセージを送信できます。"
 
 	additionalMessage, err := service.GetContactAdditionalMessage()
 	if err != nil {
 		logger.Error("Failed to get contact additional message", "error", err)
 	}
 	if additionalMessage != "" {
-		description += "\n\n" + additionalMessage
+		description += "\n\n📌 " + additionalMessage
 	}
 
 	embed := &discordgo.MessageEmbed{
 		Title:       "お問い合わせ",
 		Description: description,
 		Color:       0x5865F2,
+		Footer: &discordgo.MessageEmbedFooter{
+			Text: "💡 Botの動作に問題がある場合は /doctor コマンドもお試しください",
+		},
 	}
 
 	// SelectMenu構築
