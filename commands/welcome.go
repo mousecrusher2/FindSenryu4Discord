@@ -1,7 +1,10 @@
 package commands
 
 import (
+	"net/http"
 	"sync"
+
+	"github.com/cockroachdb/errors"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/u16-io/FindSenryu4Discord/config"
@@ -11,13 +14,23 @@ import (
 
 var welcomeSentGuilds sync.Map
 
-func markGuildWelcomeSent(guildID string) {
+// tryMarkGuildWelcomeSent atomically checks and marks a guild as welcome-sent.
+// Returns true if this is the first call for the guild (i.e. welcome should be sent).
+func tryMarkGuildWelcomeSent(guildID string) bool {
+	_, loaded := welcomeSentGuilds.LoadOrStore(guildID, struct{}{})
+	return !loaded
+}
+
+// MarkGuildWelcomeSent marks a guild as already having received the welcome message.
+// Used during initial cache burst to register existing guilds.
+func MarkGuildWelcomeSent(guildID string) {
 	welcomeSentGuilds.Store(guildID, struct{}{})
 }
 
-func isGuildWelcomeSent(guildID string) bool {
-	_, ok := welcomeSentGuilds.Load(guildID)
-	return ok
+// ClearGuildWelcomeSent removes a guild from the welcome-sent map.
+// Called when the bot leaves a guild so that re-invitation triggers a new welcome message.
+func ClearGuildWelcomeSent(guildID string) {
+	welcomeSentGuilds.Delete(guildID)
 }
 
 func buildWelcomeEmbed() *discordgo.MessageEmbed {
@@ -42,9 +55,23 @@ func buildWelcomeEmbed() *discordgo.MessageEmbed {
 	}
 }
 
+// hasChannelSendPermission checks whether the bot has SendMessages permission in the given channel.
+func hasChannelSendPermission(s *discordgo.Session, channelID string) bool {
+	perms, err := s.State.UserChannelPermissions(s.State.User.ID, channelID)
+	if err != nil {
+		return false
+	}
+	return perms&discordgo.PermissionSendMessages != 0
+}
+
 func resolveWelcomeChannel(s *discordgo.Session, g *discordgo.Guild) string {
+	// Check SystemChannelID first, but only if the bot has SendMessages permission
 	if g.SystemChannelID != "" {
-		return g.SystemChannelID
+		if hasChannelSendPermission(s, g.SystemChannelID) {
+			return g.SystemChannelID
+		}
+		logger.Debug("SystemChannelID lacks SendMessages permission, falling back",
+			"guild_id", g.ID, "system_channel_id", g.SystemChannelID)
 	}
 
 	channels, err := s.GuildChannels(g.ID)
@@ -57,16 +84,25 @@ func resolveWelcomeChannel(s *discordgo.Session, g *discordgo.Guild) string {
 		if ch.Type != discordgo.ChannelTypeGuildText {
 			continue
 		}
-		perms, err := s.State.UserChannelPermissions(s.State.User.ID, ch.ID)
-		if err != nil {
-			continue
-		}
-		if perms&discordgo.PermissionSendMessages != 0 {
+		if hasChannelSendPermission(s, ch.ID) {
 			return ch.ID
 		}
 	}
 
 	return ""
+}
+
+// isPermanentSendError returns true if the error indicates a permanent failure
+// (e.g. 403 Forbidden, 404 Not Found) where retrying would not help.
+func isPermanentSendError(err error) bool {
+	var restErr *discordgo.RESTError
+	if errors.As(err, &restErr) && restErr.Response != nil {
+		switch restErr.Response.StatusCode {
+		case http.StatusForbidden, http.StatusNotFound:
+			return true
+		}
+	}
+	return false
 }
 
 // SendWelcomeMessage sends a welcome embed to the guild's system channel (or first writable text channel).
@@ -76,23 +112,29 @@ func SendWelcomeMessage(s *discordgo.Session, g *discordgo.GuildCreate) {
 		return
 	}
 
-	if isGuildWelcomeSent(g.ID) {
+	if !tryMarkGuildWelcomeSent(g.ID) {
 		return
 	}
 
 	channelID := resolveWelcomeChannel(s, g.Guild)
 	if channelID == "" {
 		logger.Warn("No writable channel found for welcome message", "guild_id", g.ID, "guild_name", g.Name)
+		// Rollback so a future attempt can retry
+		welcomeSentGuilds.Delete(g.ID)
 		return
 	}
 
 	embed := buildWelcomeEmbed()
 	if _, err := s.ChannelMessageSendEmbed(channelID, embed); err != nil {
 		logger.Warn("Failed to send welcome message", "error", err, "guild_id", g.ID, "channel_id", channelID)
+		// Keep the mark for permanent errors (403/404) to avoid retry storms.
+		// For transient errors, rollback so a reconnect can retry.
+		if !isPermanentSendError(err) {
+			welcomeSentGuilds.Delete(g.ID)
+		}
 		return
 	}
 
-	markGuildWelcomeSent(g.ID)
 	metrics.RecordWelcomeMessageSent()
 	logger.Info("Sent welcome message", "guild_id", g.ID, "guild_name", g.Name, "channel_id", channelID)
 }
