@@ -3,9 +3,10 @@ module github.com/u16-io/FindSenryu4Discord
 go 1.26.1
 
 require (
-	github.com/0x307e/go-haiku v0.0.0-20260329080508-9d9784186eac
+	github.com/0x307e/go-haiku v0.0.0-20260412152945-f6db2b0cc6a6
 	github.com/bwmarrin/discordgo v0.29.0
 	github.com/cockroachdb/errors v1.11.3
+	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/ikawaha/kagome-dict/uni v1.1.9
 	github.com/jinzhu/gorm v1.9.16
 	github.com/knadh/koanf/parsers/toml v0.1.0
@@ -26,7 +27,6 @@ require (
 	github.com/getsentry/sentry-go v0.27.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang-migrate/migrate/v4 v4.19.1 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/ikawaha/kagome-dict v1.0.9 // indirect
 	github.com/ikawaha/kagome/v2 v2.9.4 // indirect
