@@ -43,7 +43,11 @@ func HandleDetectCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		respondEphemeral(s, i, "川柳検出を有効にしました ✅")
 
 	case "off":
-		if err := service.OptOutDetection(i.GuildID, userID, "self"); err != nil {
+		if service.IsAdminBanned(i.GuildID, userID) {
+			respondEphemeral(s, i, "管理者によって検出が無効化されています")
+			return
+		}
+		if err := service.OptOutDetection(i.GuildID, userID, service.SetBySelf); err != nil {
 			logger.Error("Failed to opt out detection", "error", err, "user_id", userID, "guild_id", i.GuildID)
 			respondEphemeral(s, i, "川柳検出の無効化に失敗しました")
 			return
@@ -140,7 +144,7 @@ func handleDetectList(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			break
 		}
 		setByLabel := "自己設定"
-		if o.SetBy == "admin" {
+		if o.SetBy == service.SetByAdmin {
 			setByLabel = "管理者BAN"
 		}
 		lines = append(lines, fmt.Sprintf("- <@%s> (%s)", o.UserID, setByLabel))

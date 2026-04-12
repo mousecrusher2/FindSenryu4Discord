@@ -17,9 +17,13 @@ func setupDetectionTestDB(t *testing.T) {
 		t.Fatalf("failed to open test database: %v", err)
 	}
 	db.DB.AutoMigrate(&model.DetectionOptOut{})
-	// Clear in-memory cache for test isolation
+	// Clear in-memory caches for test isolation
 	optOutCache.Range(func(key, _ interface{}) bool {
 		optOutCache.Delete(key)
+		return true
+	})
+	adminBanCache.Range(func(key, _ interface{}) bool {
+		adminBanCache.Delete(key)
 		return true
 	})
 	t.Cleanup(func() {
@@ -38,7 +42,7 @@ func TestAdminBanDetection_レコードが作成されること(t *testing.T) {
 	if err := db.DB.Where("server_id = ? AND user_id = ?", "server1", "user1").First(&optOut).Error; err != nil {
 		t.Fatalf("failed to find opt-out record: %v", err)
 	}
-	if optOut.SetBy != "admin" {
+	if optOut.SetBy != SetByAdmin {
 		t.Errorf("expected set_by='admin', got %q", optOut.SetBy)
 	}
 }
@@ -83,7 +87,7 @@ func TestAdminBan後にUnbanで解除できること(t *testing.T) {
 func Test自己OptOutはDetectOnで解除できること(t *testing.T) {
 	setupDetectionTestDB(t)
 
-	if err := OptOutDetection("server1", "user1", "self"); err != nil {
+	if err := OptOutDetection("server1", "user1", SetBySelf); err != nil {
 		t.Fatalf("OptOutDetection failed: %v", err)
 	}
 
@@ -104,7 +108,7 @@ func TestListOptOutsByServer_一覧取得(t *testing.T) {
 	setupDetectionTestDB(t)
 
 	// Create mixed opt-outs
-	if err := OptOutDetection("server1", "user1", "self"); err != nil {
+	if err := OptOutDetection("server1", "user1", SetBySelf); err != nil {
 		t.Fatalf("OptOutDetection failed: %v", err)
 	}
 	if err := AdminBanDetection("server1", "user2"); err != nil {
@@ -124,10 +128,10 @@ func TestListOptOutsByServer_一覧取得(t *testing.T) {
 	foundSelf := false
 	foundAdmin := false
 	for _, o := range optOuts {
-		if o.UserID == "user1" && o.SetBy == "self" {
+		if o.UserID == "user1" && o.SetBy == SetBySelf {
 			foundSelf = true
 		}
-		if o.UserID == "user2" && o.SetBy == "admin" {
+		if o.UserID == "user2" && o.SetBy == SetByAdmin {
 			foundAdmin = true
 		}
 	}
@@ -197,7 +201,7 @@ func TestAdminBan_selfからadminへの昇格(t *testing.T) {
 	setupDetectionTestDB(t)
 
 	// User first opts out themselves
-	if err := OptOutDetection("server1", "user1", "self"); err != nil {
+	if err := OptOutDetection("server1", "user1", SetBySelf); err != nil {
 		t.Fatalf("OptOutDetection failed: %v", err)
 	}
 
@@ -221,7 +225,7 @@ func TestAdminBan_selfからadminへの昇格(t *testing.T) {
 func TestIsAdminBanned_selfOptOutではfalse(t *testing.T) {
 	setupDetectionTestDB(t)
 
-	if err := OptOutDetection("server1", "user1", "self"); err != nil {
+	if err := OptOutDetection("server1", "user1", SetBySelf); err != nil {
 		t.Fatalf("OptOutDetection failed: %v", err)
 	}
 
@@ -244,7 +248,7 @@ func TestDeleteOptOutByServer_adminBan含む全削除(t *testing.T) {
 	if err := AdminBanDetection("server1", "user1"); err != nil {
 		t.Fatalf("AdminBanDetection failed: %v", err)
 	}
-	if err := OptOutDetection("server1", "user2", "self"); err != nil {
+	if err := OptOutDetection("server1", "user2", SetBySelf); err != nil {
 		t.Fatalf("OptOutDetection failed: %v", err)
 	}
 
@@ -273,7 +277,7 @@ func TestOptOutDetection_キャッシュが更新されること(t *testing.T) {
 		t.Fatal("user should not be opted out initially")
 	}
 
-	if err := OptOutDetection("server1", "user1", "self"); err != nil {
+	if err := OptOutDetection("server1", "user1", SetBySelf); err != nil {
 		t.Fatalf("OptOutDetection failed: %v", err)
 	}
 
@@ -286,7 +290,7 @@ func TestOptOutDetection_キャッシュが更新されること(t *testing.T) {
 func TestOptInDetection_キャッシュが更新されること(t *testing.T) {
 	setupDetectionTestDB(t)
 
-	if err := OptOutDetection("server1", "user1", "self"); err != nil {
+	if err := OptOutDetection("server1", "user1", SetBySelf); err != nil {
 		t.Fatalf("OptOutDetection failed: %v", err)
 	}
 
