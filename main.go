@@ -719,7 +719,7 @@ func handleYomeYomuna(m *discordgo.MessageCreate, s *discordgo.Session) bool {
 		}
 		return true
 	case "詠むな":
-		senryu, err := service.GetLastSenryu(m.GuildID, m.Author.ID)
+		senryu, err := service.GetLastSenryu(m.GuildID)
 		if err != nil {
 			if errors.Is(err, service.ErrSenryuNotFound) {
 				s.ChannelMessageSendReply(m.ChannelID, "まだ誰も詠んでいません。", m.Reference())
@@ -728,9 +728,32 @@ func handleYomeYomuna(m *discordgo.MessageCreate, s *discordgo.Session) bool {
 				s.MessageReactionAdd(m.ChannelID, m.ID, "❌")
 			}
 		} else {
+			var authorName string
+			if senryu.AuthorID == m.Author.ID {
+				authorName = "お前"
+			} else {
+				member, err := s.GuildMember(m.GuildID, senryu.AuthorID)
+				if err != nil {
+					authorName = "<@" + senryu.AuthorID + ">"
+				} else {
+					authorName = member.Nick
+					if authorName == "" {
+						authorName = member.User.GlobalName
+					}
+					if authorName == "" {
+						authorName = member.User.Username
+					}
+				}
+			}
+			var reply string
+			if senryu.Spoiler != nil && *senryu.Spoiler {
+				reply = authorName + "が||「" + senryu.Kamigo + " " + senryu.Nakasichi + " " + senryu.Simogo + "」||って詠んだのが最後やぞ"
+			} else {
+				reply = authorName + "が「" + senryu.Kamigo + " " + senryu.Nakasichi + " " + senryu.Simogo + "」って詠んだのが最後やぞ"
+			}
 			if _, err := s.ChannelMessageSendReply(
 				m.ChannelID,
-				senryu,
+				reply,
 				m.Reference(),
 			); err != nil {
 				logger.Warn("Failed to send reply", "error", err, "channel_id", m.ChannelID)

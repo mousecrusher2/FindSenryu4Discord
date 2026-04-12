@@ -101,40 +101,28 @@ func CreateSenryu(s model.Senryu) (model.Senryu, error) {
 }
 
 // GetLastSenryu returns the last senryu in a server
-func GetLastSenryu(serverID string, userID string) (string, error) {
+func GetLastSenryu(serverID string) (*model.Senryu, error) {
 	metrics.RecordDatabaseOperation("get_last_senryu")
 
 	s := model.Senryu{}
 	if err := db.DB.Where(&model.Senryu{ServerID: serverID}).Last(&s).Error; err != nil {
 		if gorm.IsRecordNotFoundError(err) {
-			return "", ErrSenryuNotFound
+			return nil, ErrSenryuNotFound
 		}
 		metrics.RecordError("database")
 		logger.Warn("Failed to get last senryu",
 			"error", err,
 			"server_id", serverID,
 		)
-		return "", errors.Wrap(err, "failed to get last senryu")
+		return nil, errors.Wrap(err, "failed to get last senryu")
 	}
 
 	if err := decryptSenryuFields(&s); err != nil {
 		logger.Error("Failed to decrypt senryu", "error", err, "id", s.ID)
-		return "", err
+		return nil, err
 	}
 
-	var str string
-	if userID == s.AuthorID {
-		str = "お前"
-	} else {
-		str = "<@" + s.AuthorID + "> "
-	}
-	if s.Spoiler != nil && *s.Spoiler {
-		str += "が||「" + s.Kamigo + " " + s.Nakasichi + " " + s.Simogo + "」||って詠んだのが最後やぞ"
-	} else {
-		str += "が「" + s.Kamigo + " " + s.Nakasichi + " " + s.Simogo + "」って詠んだのが最後やぞ"
-	}
-
-	return str, nil
+	return &s, nil
 }
 
 // GetThreeRandomSenryus returns three random senryus for generating a new one
