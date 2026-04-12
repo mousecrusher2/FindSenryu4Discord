@@ -150,8 +150,11 @@ func Migrate() error {
 		return errors.New("database contains encrypted data but encryption key is not configured; set encryption.key in config")
 	}
 
-	// Encrypt existing plaintext senryu data if encryption is enabled
-	if crypto.IsEnabled() && !isEncryptionMigrated() {
+	// Encrypt existing plaintext senryu data if encryption is enabled.
+	// Always run (not gated by isEncryptionMigrated) because the function is
+	// idempotent and skips already-encrypted records. This ensures late-arriving
+	// plaintext rows are caught on every startup.
+	if crypto.IsEnabled() {
 		if err := migrateEncryptSenryuData(); err != nil {
 			logger.Error("Failed to encrypt existing senryu data", "error", err)
 			return err
