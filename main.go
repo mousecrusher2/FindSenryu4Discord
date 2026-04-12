@@ -275,28 +275,22 @@ func main() {
 
 	// Register user commands (global)
 	logger.Info("Registering user slash commands...")
-	registeredUserCommands := make([]*discordgo.ApplicationCommand, len(userCommands))
-	for i, cmd := range userCommands {
-		rcmd, err := dg.ApplicationCommandCreate(dg.State.User.ID, "", cmd)
-		if err != nil {
+	for _, cmd := range userCommands {
+		if _, err := dg.ApplicationCommandCreate(dg.State.User.ID, "", cmd); err != nil {
 			logger.Error("Failed to register command", "command", cmd.Name, "error", err)
 		} else {
-			registeredUserCommands[i] = rcmd
 			logger.Info("Registered command", "command", cmd.Name)
 		}
 	}
 
 	// Register admin commands (guild-specific)
 	adminGuildID := permissions.GetAdminGuildID()
-	var registeredAdminCommands []*discordgo.ApplicationCommand
 	if adminGuildID != "" {
 		logger.Info("Registering admin slash commands...", "guild_id", adminGuildID)
 		for _, cmd := range commands.AdminCommands() {
-			rcmd, err := dg.ApplicationCommandCreate(dg.State.User.ID, adminGuildID, cmd)
-			if err != nil {
+			if _, err := dg.ApplicationCommandCreate(dg.State.User.ID, adminGuildID, cmd); err != nil {
 				logger.Error("Failed to register admin command", "command", cmd.Name, "error", err)
 			} else {
-				registeredAdminCommands = append(registeredAdminCommands, rcmd)
 				logger.Info("Registered admin command", "command", cmd.Name, "guild_id", adminGuildID)
 			}
 		}
@@ -360,27 +354,9 @@ func main() {
 		}
 	}
 
-	// Remove slash commands
-	logger.Info("Removing user slash commands...")
-	for _, cmd := range registeredUserCommands {
-		if cmd != nil {
-			if err := dg.ApplicationCommandDelete(dg.State.User.ID, "", cmd.ID); err != nil {
-				logger.Error("Failed to delete command", "command", cmd.Name, "error", err)
-			}
-		}
-	}
-
-	// Remove admin commands
-	if adminGuildID != "" {
-		logger.Info("Removing admin slash commands...")
-		for _, cmd := range registeredAdminCommands {
-			if cmd != nil {
-				if err := dg.ApplicationCommandDelete(dg.State.User.ID, adminGuildID, cmd.ID); err != nil {
-					logger.Error("Failed to delete admin command", "command", cmd.Name, "error", err)
-				}
-			}
-		}
-	}
+	// Slash commands are intentionally NOT removed on shutdown.
+	// ApplicationCommandCreate (called on startup) is an upsert, so commands
+	// persist across restarts without the up-to-1-hour global propagation delay.
 
 	// Close all Discord shard connections
 	for _, s := range allSessions {
