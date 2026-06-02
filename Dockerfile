@@ -7,8 +7,8 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o bot main.go
-RUN CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o migrate ./cmd/migrate
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o bot main.go
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o migrate ./cmd/migrate
 
 # Runtime stage
 FROM gcr.io/distroless/base-debian13:nonroot
