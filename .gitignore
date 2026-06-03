@@ -3,3 +3,5 @@
 
 FindSenryu4Discord
 *.out
+
+.env

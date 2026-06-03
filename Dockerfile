@@ -11,7 +11,7 @@ RUN CGO_ENABLED=0 go build -o bot main.go
 RUN CGO_ENABLED=0 go build -o migrate ./cmd/migrate
 
 # Runtime stage
-FROM gcr.io/distroless/base-debian13:nonroot@sha256:a557d784ac275c287d2bdf3172f47bece8d2a0ef3c0fdefb712e95084a04a562
+FROM gcr.io/distroless/static-debian13:nonroot@sha256:963fa6c544fe5ce420f1f54fb88b6fb01479f054c8056d0f74cc2c6000df5240
 
 WORKDIR /app
 COPY --from=builder /build/bot /app/bot
