@@ -3,8 +3,6 @@ name: Publish OCIR Image
 on:
   push:
     branches: [master]
-    tags:
-      - "v*"
   workflow_dispatch:
 
 permissions:
