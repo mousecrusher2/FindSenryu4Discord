@@ -185,6 +185,8 @@ docker compose up -d
 
 `compose.yaml` は external secret を宣言します。実行する Compose 実装が external secret を扱えない場合は、Quadlet 手順を使ってください。アプリケーションデータは外部 PostgreSQL に保存されます。Compose は named volume と `config.toml` bind mount を使いません。
 
+`compose.yaml` の app service は `/app/healthcheck` で `/health` を確認します。distroless image に shell や curl は入れません。`findsenryu-server-enabled` は `true` のままにしてください。
+
 `docker compose pull` と `docker compose up` は OCIR から image を pull するため、デプロイ先の Docker config には `kix.ocir.io` の `credHelpers` として `ocir` を設定してください。helper binary は `docker-credential-ocir` という名前で `PATH` から実行できる必要があります。
 
 ## 参考
