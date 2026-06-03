@@ -27,6 +27,31 @@ func TestLoadSecretsBuildsPostgresDSN(t *testing.T) {
 	}
 }
 
+func TestMigrationConfigDoesNotRequireDiscordSecret(t *testing.T) {
+	dir := t.TempDir()
+	writeSecret(t, dir, secretPGHost, "db.example.com")
+	writeSecret(t, dir, secretPGDatabase, "findsenryu")
+	writeSecret(t, dir, secretPGUser, "senryu")
+	writeSecret(t, dir, secretPGPassword, "password")
+	writeSecret(t, dir, secretPGSSLMode, "verify-full")
+
+	c := &Config{}
+	setDefaults(c)
+	if err := loadDatabaseSecrets(c, dir); err != nil {
+		t.Fatalf("loadDatabaseSecrets failed: %v", err)
+	}
+	if err := loadLogSecrets(c, dir); err != nil {
+		t.Fatalf("loadLogSecrets failed: %v", err)
+	}
+
+	if c.Discord.Token != "" {
+		t.Fatalf("Discord token = %q, want empty", c.Discord.Token)
+	}
+	if c.Database.DSN == "" {
+		t.Fatal("Database DSN is empty")
+	}
+}
+
 func writeSecret(t *testing.T, dir, name, value string) {
 	t.Helper()
 	if err := os.WriteFile(filepath.Join(dir, name), []byte(value), 0o600); err != nil {

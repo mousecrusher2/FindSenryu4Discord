@@ -11,9 +11,6 @@ ContainerName=findsenryu-migrate
 Entrypoint=/app/migrate
 Image=findsenryu.image
 LogDriver=passthrough
-Secret=findsenryu-discord-token
-Secret=findsenryu-discord-playing
-Secret=findsenryu-discord-welcome-enabled
 Secret=findsenryu-pghost
 Secret=findsenryu-pgdatabase
 Secret=findsenryu-pguser
@@ -21,11 +18,6 @@ Secret=findsenryu-pgpassword
 Secret=findsenryu-pgsslmode
 Secret=findsenryu-log-level
 Secret=findsenryu-log-format
-Secret=findsenryu-admin-owner-ids
-Secret=findsenryu-admin-guild-id
-Secret=findsenryu-admin-log-channel-id
-Secret=findsenryu-admin-report-channel-id
-Secret=findsenryu-admin-contact-channel-id
 UserNS=auto
 
 [Service]

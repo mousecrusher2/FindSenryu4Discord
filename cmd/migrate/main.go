@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	conf, err := config.Load()
+	conf, err := config.LoadMigration()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "<3>Failed to load config: %v\n", err)
 		os.Exit(1)

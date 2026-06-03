@@ -96,6 +96,27 @@ func Load() (*Config, error) {
 	return conf, loadErr
 }
 
+// LoadMigration loads only the configuration needed by the migration command.
+func LoadMigration() (*Config, error) {
+	var loadErr error
+	once.Do(func() {
+		c := &Config{}
+		setDefaults(c)
+
+		if err := loadDatabaseSecrets(c, secretDir); err != nil {
+			loadErr = err
+			return
+		}
+		if err := loadLogSecrets(c, secretDir); err != nil {
+			loadErr = err
+			return
+		}
+		conf = c
+	})
+
+	return conf, loadErr
+}
+
 func boolPtr(v bool) *bool { return &v }
 
 func setDefaults(c *Config) {
@@ -105,6 +126,23 @@ func setDefaults(c *Config) {
 }
 
 func loadSecrets(c *Config, dir string) error {
+	if err := loadDiscordSecrets(c, dir); err != nil {
+		return err
+	}
+	if err := loadDatabaseSecrets(c, dir); err != nil {
+		return err
+	}
+	if err := loadLogSecrets(c, dir); err != nil {
+		return err
+	}
+	if err := loadAdminSecrets(c, dir); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func loadDiscordSecrets(c *Config, dir string) error {
 	var err error
 
 	if c.Discord.Token, err = readSecret(dir, secretDiscordToken); err != nil {
@@ -117,6 +155,12 @@ func loadSecrets(c *Config, dir string) error {
 	if c.Discord.WelcomeEnabled, err = readOptionalBoolSecret(dir, secretDiscordWelcomeEnabled, c.Discord.WelcomeEnabled); err != nil {
 		return err
 	}
+
+	return nil
+}
+
+func loadDatabaseSecrets(c *Config, dir string) error {
+	var err error
 
 	if c.Database.Host, err = readSecret(dir, secretPGHost); err != nil {
 		return err
@@ -135,12 +179,24 @@ func loadSecrets(c *Config, dir string) error {
 	}
 	c.Database.DSN = buildPostgresDSN(c.Database)
 
+	return nil
+}
+
+func loadLogSecrets(c *Config, dir string) error {
+	var err error
+
 	if c.Log.Level, err = readOptionalSecretWithDefault(dir, secretLogLevel, c.Log.Level); err != nil {
 		return err
 	}
 	if c.Log.Format, err = readOptionalSecretWithDefault(dir, secretLogFormat, c.Log.Format); err != nil {
 		return err
 	}
+
+	return nil
+}
+
+func loadAdminSecrets(c *Config, dir string) error {
+	var err error
 
 	if c.Admin.OwnerIDs, err = readOptionalListSecret(dir, secretAdminOwnerIDs); err != nil {
 		return err
@@ -202,22 +258,6 @@ func readOptionalBoolSecret(dir, name string, defaultValue *bool) (*bool, error)
 		return nil, fmt.Errorf("invalid boolean podman secret %q: %w", name, err)
 	}
 	return boolPtr(parsed), nil
-}
-
-func readOptionalIntSecret(dir, name string, defaultValue int) (int, error) {
-	value, exists, err := readSecretFile(dir, name)
-	if err != nil {
-		return 0, err
-	}
-	if !exists || value == "" {
-		return defaultValue, nil
-	}
-
-	parsed, err := strconv.Atoi(value)
-	if err != nil {
-		return 0, fmt.Errorf("invalid integer podman secret %q: %w", name, err)
-	}
-	return parsed, nil
 }
 
 func readOptionalListSecret(dir, name string) ([]string, error) {
