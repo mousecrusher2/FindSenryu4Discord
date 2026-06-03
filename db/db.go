@@ -117,7 +117,11 @@ func IsConnected() bool {
 	if sqlDB == nil {
 		return false
 	}
-	return sqlDB.Ping() == nil
+	if err := sqlDB.Ping(); err != nil {
+		logger.Error("Database connection ping failed", "error", err)
+		return false
+	}
+	return true
 }
 
 // GetDB returns the database instance
