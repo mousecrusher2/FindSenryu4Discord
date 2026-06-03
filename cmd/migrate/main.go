@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	conf, err := config.Load("config.toml")
+	conf, err := config.Load()
 	if err != nil {
 		fmt.Printf("Failed to load config: %v\n", err)
 		os.Exit(1)
@@ -29,7 +29,7 @@ func main() {
 	conf.Encryption.Key = ""
 
 	logger.Info("Starting database migration",
-		"db_driver", conf.Database.Driver,
+		"db_driver", "postgres",
 		"encryption_enabled", crypto.IsEnabled(),
 	)
 

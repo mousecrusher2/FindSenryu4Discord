@@ -2,116 +2,103 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"log"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
+)
 
-	"github.com/knadh/koanf/parsers/toml"
-	"github.com/knadh/koanf/providers/env"
-	"github.com/knadh/koanf/providers/file"
-	"github.com/knadh/koanf/v2"
+const secretDir = "/run/secrets"
+
+const (
+	secretDiscordToken          = "findsenryu-discord-token"
+	secretDiscordPlaying        = "findsenryu-discord-playing"
+	secretDiscordWelcomeEnabled = "findsenryu-discord-welcome-enabled"
+	secretDatabaseDSN           = "findsenryu-database-dsn"
+	secretLogLevel              = "findsenryu-log-level"
+	secretLogFormat             = "findsenryu-log-format"
+	secretAdminOwnerIDs         = "findsenryu-admin-owner-ids"
+	secretAdminGuildID          = "findsenryu-admin-guild-id"
+	secretAdminLogChannelID     = "findsenryu-admin-log-channel-id"
+	secretAdminReportChannelID  = "findsenryu-admin-report-channel-id"
+	secretAdminContactChannelID = "findsenryu-admin-contact-channel-id"
+	secretServerEnabled         = "findsenryu-server-enabled"
+	secretServerPort            = "findsenryu-server-port"
+	secretEncryptionKey         = "findsenryu-encryption-key"
 )
 
 var (
-	k    = koanf.New(".")
 	conf *Config
 	once sync.Once
 )
 
-// Config holds all configuration
+// Config holds all configuration.
 type Config struct {
-	Discord    DiscordConfig    `koanf:"discord"`
-	Database   DatabaseConfig   `koanf:"database"`
-	Log        LogConfig        `koanf:"log"`
-	Admin      AdminConfig      `koanf:"admin"`
-	Server     ServerConfig     `koanf:"server"`
-	Backup     BackupConfig     `koanf:"backup"`
-	Encryption EncryptionConfig `koanf:"encryption"`
+	Discord    DiscordConfig
+	Database   DatabaseConfig
+	Log        LogConfig
+	Admin      AdminConfig
+	Server     ServerConfig
+	Encryption EncryptionConfig
 }
 
-// DiscordConfig holds Discord-related configuration
+// DiscordConfig holds Discord-related configuration.
 type DiscordConfig struct {
-	Token          string `koanf:"token"`
-	Playing        string `koanf:"playing"`
-	WelcomeEnabled *bool  `koanf:"welcome_enabled"`
+	Token          string
+	Playing        string
+	WelcomeEnabled *bool
 }
 
-// DatabaseConfig holds database configuration
+// DatabaseConfig holds database configuration.
 type DatabaseConfig struct {
-	Driver string `koanf:"driver"` // sqlite3 or postgres
-	Path   string `koanf:"path"`   // SQLite file path
-	DSN    string `koanf:"dsn"`    // PostgreSQL DSN
+	DSN string
 }
 
-// LogConfig holds logging configuration
+// LogConfig holds logging configuration.
 type LogConfig struct {
-	Level  string `koanf:"level"`  // debug, info, warn, error
-	Format string `koanf:"format"` // json, text
+	Level  string
+	Format string
 }
 
-// AdminConfig holds admin-related configuration
+// AdminConfig holds admin-related configuration.
 type AdminConfig struct {
-	OwnerIDs         []string `koanf:"owner_ids"`          // Bot admin Discord IDs
-	GuildID          string   `koanf:"guild_id"`           // Guild ID for admin commands
-	LogChannelID     string   `koanf:"log_channel_id"`     // Real-time notification channel (guild join/leave)
-	ReportChannelID  string   `koanf:"report_channel_id"`  // Daily report channel
-	ContactChannelID string   `koanf:"contact_channel_id"` // Contact notification channel (future use)
+	OwnerIDs         []string
+	GuildID          string
+	LogChannelID     string
+	ReportChannelID  string
+	ContactChannelID string
 }
 
-// ServerConfig holds HTTP server configuration
+// ServerConfig holds HTTP server configuration.
 type ServerConfig struct {
-	Port    int  `koanf:"port"`    // HTTP server port for metrics/health
-	Enabled bool `koanf:"enabled"` // Enable HTTP server
+	Port    int
+	Enabled *bool
 }
 
-// BackupConfig holds backup configuration
-type BackupConfig struct {
-	Enabled      bool   `koanf:"enabled"`       // Enable automatic backup
-	IntervalHour int    `koanf:"interval_hour"` // Backup interval in hours
-	Path         string `koanf:"path"`          // Backup directory path
-	MaxBackups   int    `koanf:"max_backups"`   // Maximum number of backups to keep
-}
-
-// EncryptionConfig holds encryption configuration for senryu data
+// EncryptionConfig holds encryption configuration for senryu data.
 type EncryptionConfig struct {
-	Key string `koanf:"key"` // Hex-encoded 32-byte AES-256 key (empty = disabled)
+	Key string
 }
 
-// Load loads configuration from file and environment variables
-func Load(configPath string) (*Config, error) {
+// Load loads configuration from Podman secret files mounted under /run/secrets.
+func Load() (*Config, error) {
 	var loadErr error
 	once.Do(func() {
-		// Load from TOML file
-		if err := k.Load(file.Provider(configPath), toml.Parser()); err != nil {
+		c := &Config{}
+		setDefaults(c)
+
+		if err := loadSecrets(c, secretDir); err != nil {
 			loadErr = err
 			return
 		}
-
-		// Load from environment variables (FINDSENRYU_ prefix)
-		// Environment variables override file config
-		if err := k.Load(env.Provider("FINDSENRYU_", ".", func(s string) string {
-			return strings.Replace(
-				strings.ToLower(strings.TrimPrefix(s, "FINDSENRYU_")),
-				"_", ".", -1)
-		}), nil); err != nil {
+		if err := validate(c); err != nil {
 			loadErr = err
 			return
 		}
-
-		conf = &Config{}
-		if err := k.Unmarshal("", conf); err != nil {
-			loadErr = err
-			return
-		}
-
-		// Set defaults
-		setDefaults(conf)
-
-		// Validate required fields
-		if err := validate(conf); err != nil {
-			loadErr = err
-			return
-		}
+		conf = c
 	})
 
 	return conf, loadErr
@@ -120,50 +107,174 @@ func Load(configPath string) (*Config, error) {
 func boolPtr(v bool) *bool { return &v }
 
 func setDefaults(c *Config) {
-	if c.Discord.WelcomeEnabled == nil {
-		c.Discord.WelcomeEnabled = boolPtr(true)
+	c.Discord.WelcomeEnabled = boolPtr(true)
+	c.Log.Level = "info"
+	c.Log.Format = "text"
+	c.Server.Port = 9090
+	c.Server.Enabled = boolPtr(true)
+}
+
+func loadSecrets(c *Config, dir string) error {
+	var err error
+
+	if c.Discord.Token, err = readSecret(dir, secretDiscordToken); err != nil {
+		return err
 	}
-	if c.Database.Driver == "" {
-		c.Database.Driver = "sqlite3"
+	c.Discord.Playing, err = readOptionalSecret(dir, secretDiscordPlaying)
+	if err != nil {
+		return err
 	}
-	if c.Database.Path == "" {
-		c.Database.Path = "data/senryu.db"
+	if c.Discord.WelcomeEnabled, err = readOptionalBoolSecret(dir, secretDiscordWelcomeEnabled, c.Discord.WelcomeEnabled); err != nil {
+		return err
 	}
-	if c.Log.Level == "" {
-		c.Log.Level = "info"
+
+	if c.Database.DSN, err = readSecret(dir, secretDatabaseDSN); err != nil {
+		return err
 	}
-	if c.Log.Format == "" {
-		c.Log.Format = "text"
+
+	if c.Log.Level, err = readOptionalSecretWithDefault(dir, secretLogLevel, c.Log.Level); err != nil {
+		return err
 	}
-	if c.Server.Port == 0 {
-		c.Server.Port = 9090
+	if c.Log.Format, err = readOptionalSecretWithDefault(dir, secretLogFormat, c.Log.Format); err != nil {
+		return err
 	}
-	if c.Backup.IntervalHour == 0 {
-		c.Backup.IntervalHour = 24
+
+	if c.Admin.OwnerIDs, err = readOptionalListSecret(dir, secretAdminOwnerIDs); err != nil {
+		return err
 	}
-	if c.Backup.Path == "" {
-		c.Backup.Path = "data/backups"
+	if c.Admin.GuildID, err = readOptionalSecret(dir, secretAdminGuildID); err != nil {
+		return err
 	}
-	if c.Backup.MaxBackups == 0 {
-		c.Backup.MaxBackups = 7
+	if c.Admin.LogChannelID, err = readOptionalSecret(dir, secretAdminLogChannelID); err != nil {
+		return err
 	}
+	if c.Admin.ReportChannelID, err = readOptionalSecret(dir, secretAdminReportChannelID); err != nil {
+		return err
+	}
+	if c.Admin.ContactChannelID, err = readOptionalSecret(dir, secretAdminContactChannelID); err != nil {
+		return err
+	}
+
+	if c.Server.Enabled, err = readOptionalBoolSecret(dir, secretServerEnabled, c.Server.Enabled); err != nil {
+		return err
+	}
+	if c.Server.Port, err = readOptionalIntSecret(dir, secretServerPort, c.Server.Port); err != nil {
+		return err
+	}
+
+	c.Encryption.Key, err = readOptionalSecret(dir, secretEncryptionKey)
+	return err
+}
+
+func readSecret(dir, name string) (string, error) {
+	value, exists, err := readSecretFile(dir, name)
+	if err != nil {
+		return "", err
+	}
+	if !exists || value == "" {
+		return "", fmt.Errorf("required podman secret %q is missing or empty", name)
+	}
+	return value, nil
+}
+
+func readOptionalSecret(dir, name string) (string, error) {
+	value, _, err := readSecretFile(dir, name)
+	return value, err
+}
+
+func readOptionalSecretWithDefault(dir, name, defaultValue string) (string, error) {
+	value, exists, err := readSecretFile(dir, name)
+	if err != nil {
+		return "", err
+	}
+	if !exists || value == "" {
+		return defaultValue, nil
+	}
+	return value, nil
+}
+
+func readOptionalBoolSecret(dir, name string, defaultValue *bool) (*bool, error) {
+	value, exists, err := readSecretFile(dir, name)
+	if err != nil {
+		return nil, err
+	}
+	if !exists || value == "" {
+		return defaultValue, nil
+	}
+
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return nil, fmt.Errorf("invalid boolean podman secret %q: %w", name, err)
+	}
+	return boolPtr(parsed), nil
+}
+
+func readOptionalIntSecret(dir, name string, defaultValue int) (int, error) {
+	value, exists, err := readSecretFile(dir, name)
+	if err != nil {
+		return 0, err
+	}
+	if !exists || value == "" {
+		return defaultValue, nil
+	}
+
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return 0, fmt.Errorf("invalid integer podman secret %q: %w", name, err)
+	}
+	return parsed, nil
+}
+
+func readOptionalListSecret(dir, name string) ([]string, error) {
+	value, exists, err := readSecretFile(dir, name)
+	if err != nil || !exists || value == "" {
+		return nil, err
+	}
+	return splitList(value), nil
+}
+
+func readSecretFile(dir, name string) (string, bool, error) {
+	body, err := os.ReadFile(filepath.Join(dir, name))
+	if errors.Is(err, os.ErrNotExist) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, fmt.Errorf("failed to read podman secret %q: %w", name, err)
+	}
+	return strings.TrimSpace(string(body)), true, nil
 }
 
 func validate(c *Config) error {
 	if c.Discord.Token == "" {
-		return errors.New("discord.token is required")
+		return errors.New("discord token is required")
+	}
+	if c.Database.DSN == "" {
+		return errors.New("postgres dsn is required")
 	}
 	if c.Admin.GuildID != "" && len(c.Admin.OwnerIDs) == 0 {
-		log.Println("WARNING: admin.guild_id is set but admin.owner_ids is empty; admin commands will be registered but unusable")
+		log.Println("WARNING: admin guild id is set but admin owner ids are empty; admin commands will be registered but unusable")
 	}
 	return nil
 }
 
-// GetConf returns the loaded configuration (legacy compatibility)
+func splitList(value string) []string {
+	parts := strings.FieldsFunc(value, func(r rune) bool {
+		return r == ',' || r == ' ' || r == '\n' || r == '\t'
+	})
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
+}
+
+// GetConf returns the loaded configuration.
 func GetConf() *Config {
 	if conf == nil {
 		var err error
-		conf, err = Load("config.toml")
+		conf, err = Load()
 		if err != nil {
 			log.Fatalf("Failed to load config: %v", err)
 		}
@@ -179,22 +290,10 @@ func (c *DiscordConfig) IsWelcomeEnabled() bool {
 	return *c.WelcomeEnabled
 }
 
-// Get returns a value from config by key
-func Get(key string) interface{} {
-	return k.Get(key)
-}
-
-// String returns a string value from config by key
-func String(key string) string {
-	return k.String(key)
-}
-
-// Int returns an int value from config by key
-func Int(key string) int {
-	return k.Int(key)
-}
-
-// Bool returns a bool value from config by key
-func Bool(key string) bool {
-	return k.Bool(key)
+// IsEnabled returns whether the health server is enabled.
+func (c *ServerConfig) IsEnabled() bool {
+	if c.Enabled == nil {
+		return true
+	}
+	return *c.Enabled
 }

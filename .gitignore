@@ -1,12 +1,5 @@
 # General
 .DS_Store
 
-# Config
-config.toml
-.env
-
-# db
-data/
-
 FindSenryu4Discord
 *.out

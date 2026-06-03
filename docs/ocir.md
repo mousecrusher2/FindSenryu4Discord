@@ -1,6 +1,6 @@
 # OCIR デプロイ
 
-`compose.yaml` を実行時定義の正とします。GitHub Actions は Dockerfile からイメージをビルドして Oracle Cloud Infrastructure Registry (OCIR) に push し、Compose と Quadlet はそのイメージを参照します。
+GitHub Actions は Dockerfile からイメージをビルドして Oracle Cloud Infrastructure Registry (OCIR) に push します。Compose と Quadlet はそのイメージを参照します。
 
 ## OCIR イメージ URI
 
@@ -118,19 +118,33 @@ password には OCI Auth Token を入力します。
 
 ## Compose デプロイ
 
-`config.toml` を用意し、イメージ URI を設定して起動します。
+外部 PostgreSQL の DSN と Discord Bot token は secret として渡します。PostgreSQL container はこの Compose では用意しません。
 
 ```bash
-export OCIR_REGISTRY="<ocir-registry>"
-export OCIR_USERNAME="your-tenancy-namespace/your-oci-username"
-export FINDSENRYU_IMAGE="<ocir-image-uri>"
+image="<ocir-image-uri>"
+sed -i "s#<ocir-image-uri>#$image#g" compose.yaml
 
-docker login "$OCIR_REGISTRY" -u "$OCIR_USERNAME"
+printf '%s' '<discord-bot-token>' | podman secret create --replace findsenryu-discord-token -
+printf '\n' | podman secret create --replace findsenryu-discord-playing -
+printf '%s' 'true' | podman secret create --replace findsenryu-discord-welcome-enabled -
+printf '%s' '<postgres-dsn>' | podman secret create --replace findsenryu-database-dsn -
+printf '%s' 'info' | podman secret create --replace findsenryu-log-level -
+printf '%s' 'text' | podman secret create --replace findsenryu-log-format -
+printf '\n' | podman secret create --replace findsenryu-admin-owner-ids -
+printf '\n' | podman secret create --replace findsenryu-admin-guild-id -
+printf '\n' | podman secret create --replace findsenryu-admin-log-channel-id -
+printf '\n' | podman secret create --replace findsenryu-admin-report-channel-id -
+printf '\n' | podman secret create --replace findsenryu-admin-contact-channel-id -
+printf '%s' 'true' | podman secret create --replace findsenryu-server-enabled -
+printf '%s' '9090' | podman secret create --replace findsenryu-server-port -
+printf '\n' | podman secret create --replace findsenryu-encryption-key -
+
+docker login "<ocir-registry>" -u "<tenancy-namespace>/<oci-username>"
 docker compose pull
 docker compose up -d
 ```
 
-アプリケーションデータは Compose の named volume `findsenryu-data` に保存されます。`config.toml` は bind mount のままです。
+`compose.yaml` は external secret を宣言します。実行する Compose 実装が external secret を扱えない場合は、Quadlet 手順を使ってください。アプリケーションデータは外部 PostgreSQL に保存されます。Compose は named volume と `config.toml` bind mount を使いません。
 
 `docker compose pull` と `docker compose up` は OCIR から image を pull するため、デプロイ先でも `docker login "$OCIR_REGISTRY" -u "$OCIR_USERNAME"` が必要です。password には OCI Auth Token を入力してください。
 

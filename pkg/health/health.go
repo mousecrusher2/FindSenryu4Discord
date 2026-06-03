@@ -150,7 +150,7 @@ func (s *Server) statsHandler(w http.ResponseWriter, r *http.Request) {
 // StartServer creates and starts the health check server if enabled
 func StartServer() (*Server, error) {
 	conf := config.GetConf()
-	if !conf.Server.Enabled {
+	if !conf.Server.IsEnabled() {
 		logger.Info("Health check server is disabled")
 		return nil, nil
 	}

@@ -9,10 +9,6 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/ikawaha/kagome-dict/uni v1.1.9
 	github.com/jinzhu/gorm v1.9.16
-	github.com/knadh/koanf/parsers/toml v0.1.0
-	github.com/knadh/koanf/providers/env v1.0.0
-	github.com/knadh/koanf/providers/file v1.1.2
-	github.com/knadh/koanf/v2 v2.1.2
 	github.com/lib/pq v1.10.9
 	github.com/mattn/go-sqlite3 v1.14.33
 	github.com/prometheus/client_golang v1.20.5
@@ -23,22 +19,16 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
 	github.com/cockroachdb/redact v1.1.5 // indirect
-	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/getsentry/sentry-go v0.27.0 // indirect
-	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/ikawaha/kagome-dict v1.0.9 // indirect
 	github.com/ikawaha/kagome/v2 v2.9.4 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/klauspost/compress v1.17.9 // indirect
-	github.com/knadh/koanf/maps v0.1.1 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
-	github.com/mitchellh/copystructure v1.2.0 // indirect
-	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.55.0 // indirect

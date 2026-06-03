@@ -5,9 +5,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/u16-io/FindSenryu4Discord/config"
 	"github.com/u16-io/FindSenryu4Discord/db"
-	"github.com/u16-io/FindSenryu4Discord/pkg/backup"
 	"github.com/u16-io/FindSenryu4Discord/pkg/logger"
 	"github.com/u16-io/FindSenryu4Discord/pkg/metrics"
 	"github.com/u16-io/FindSenryu4Discord/pkg/permissions"
@@ -15,15 +13,9 @@ import (
 )
 
 var (
-	backupManager *backup.Manager
-	startTime     time.Time
-	allSessions   []*discordgo.Session
+	startTime   time.Time
+	allSessions []*discordgo.Session
 )
-
-// SetBackupManager sets the backup manager for admin commands
-func SetBackupManager(m *backup.Manager) {
-	backupManager = m
-}
 
 // SetStartTime sets the start time for uptime calculation
 func SetStartTime(t time.Time) {
@@ -57,11 +49,6 @@ func AdminCommands() []*discordgo.ApplicationCommand {
 				{
 					Name:        "stats",
 					Description: "Bot統計情報を表示します",
-					Type:        discordgo.ApplicationCommandOptionSubCommand,
-				},
-				{
-					Name:        "backup",
-					Description: "手動バックアップを作成します",
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 				},
 				{
@@ -121,8 +108,6 @@ func HandleAdminCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	switch options[0].Name {
 	case "stats":
 		handleStatsCommand(s, i)
-	case "backup":
-		handleBackupCommand(s, i)
 	case "contact-message":
 		handleContactMessageCommand(s, i, options[0].Options)
 	}
@@ -130,7 +115,6 @@ func HandleAdminCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 func handleStatsCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	dbStats := db.GetStats()
-	conf := config.GetConf()
 
 	uptime := time.Since(startTime).Round(time.Second)
 
@@ -151,7 +135,7 @@ func handleStatsCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			},
 			{
 				Name:   "Database Driver",
-				Value:  conf.Database.Driver,
+				Value:  "postgres",
 				Inline: true,
 			},
 			{
@@ -178,64 +162,6 @@ func handleStatsCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			Embeds: []*discordgo.MessageEmbed{embed},
 			Flags:  discordgo.MessageFlagsEphemeral,
 		},
-	})
-}
-
-func handleBackupCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	conf := config.GetConf()
-
-	if conf.Database.Driver != "sqlite3" {
-		respondError(s, i, "バックアップはSQLiteのみ対応しています")
-		return
-	}
-
-	if backupManager == nil {
-		respondError(s, i, "バックアップマネージャーが初期化されていません")
-		return
-	}
-
-	// Defer response for long-running operation
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags: discordgo.MessageFlagsEphemeral,
-		},
-	})
-
-	if err := backupManager.CreateBackup(); err != nil {
-		logger.Error("Manual backup failed", "error", err)
-		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-			Content: strPtr("バックアップの作成に失敗しました: " + err.Error()),
-		})
-		return
-	}
-
-	// Get backup list
-	backups, err := backupManager.ListBackups()
-	if err != nil {
-		s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-			Content: strPtr("バックアップは作成されましたが、一覧の取得に失敗しました"),
-		})
-		return
-	}
-
-	description := "最新のバックアップ:\n"
-	for idx, b := range backups {
-		if idx >= 5 {
-			break
-		}
-		description += fmt.Sprintf("- `%s` (%s)\n", b.Name, b.CreatedAt.Format("2006-01-02 15:04:05"))
-	}
-
-	embed := &discordgo.MessageEmbed{
-		Title:       "Backup Created",
-		Description: description,
-		Color:       0x00ff00,
-		Timestamp:   time.Now().Format(time.RFC3339),
-	}
-
-	s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-		Embeds: &[]*discordgo.MessageEmbed{embed},
 	})
 }
 

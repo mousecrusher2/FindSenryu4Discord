@@ -5,3 +5,6 @@ PartOf=findsenryu4discord.target
 AuthFile=/etc/containers/findsenryu4discord/auth.json
 Image=<ocir-image-uri>
 Policy=always
+
+[Install]
+WantedBy=findsenryu4discord.target

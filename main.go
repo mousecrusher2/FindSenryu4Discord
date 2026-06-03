@@ -18,7 +18,6 @@ import (
 	"github.com/u16-io/FindSenryu4Discord/db"
 	"github.com/u16-io/FindSenryu4Discord/model"
 	"github.com/u16-io/FindSenryu4Discord/pkg/adminnotify"
-	"github.com/u16-io/FindSenryu4Discord/pkg/backup"
 	"github.com/u16-io/FindSenryu4Discord/pkg/crypto"
 	"github.com/u16-io/FindSenryu4Discord/pkg/health"
 	"github.com/u16-io/FindSenryu4Discord/pkg/logger"
@@ -156,7 +155,7 @@ func main() {
 	haiku.UseDict(uni.Dict())
 
 	// Load configuration
-	conf, err := config.Load("config.toml")
+	conf, err := config.Load()
 	if err != nil {
 		fmt.Printf("Failed to load config: %v\n", err)
 		os.Exit(1)
@@ -170,7 +169,7 @@ func main() {
 
 	logger.Info("Starting FindSenryu4Discord",
 		"log_level", conf.Log.Level,
-		"db_driver", conf.Database.Driver,
+		"db_driver", "postgres",
 	)
 
 	// Initialize encryption
@@ -195,13 +194,6 @@ func main() {
 		logger.Error("Failed to start health server", "error", err)
 	}
 
-	// Initialize backup manager
-	var backupManager *backup.Manager
-	if conf.Database.Driver == "sqlite3" && conf.Backup.Enabled {
-		backupManager = backup.NewManager(conf.Backup, conf.Database.Path)
-		backupManager.Start()
-		commands.SetBackupManager(backupManager)
-	}
 	commands.SetStartTime(startTime)
 
 	// Get recommended shard count from Discord
@@ -340,11 +332,6 @@ func main() {
 	if adminNotifier != nil {
 		adminNotifier.NotifyStopping()
 		adminNotifier.Stop(ctx)
-	}
-
-	// Stop backup manager
-	if backupManager != nil {
-		backupManager.Stop(ctx)
 	}
 
 	// Stop health server

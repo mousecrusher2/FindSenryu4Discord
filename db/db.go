@@ -3,13 +3,11 @@ package db
 import (
 	"embed"
 	"errors"
-	"os"
 	"sync"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database"
 	pgmigrate "github.com/golang-migrate/migrate/v4/database/postgres"
-	sqlitemigrate "github.com/golang-migrate/migrate/v4/database/sqlite3"
 	"github.com/golang-migrate/migrate/v4/source"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/jinzhu/gorm"
@@ -18,8 +16,6 @@ import (
 	"github.com/u16-io/FindSenryu4Discord/pkg/crypto"
 	"github.com/u16-io/FindSenryu4Discord/pkg/logger"
 
-	// SQLite3 driver for Gorm
-	_ "github.com/mattn/go-sqlite3"
 	// PostgreSQL driver for Gorm
 	_ "github.com/lib/pq"
 )
@@ -28,9 +24,6 @@ var (
 	DB   *gorm.DB
 	once sync.Once
 )
-
-//go:embed migrations/sqlite3/*.sql
-var sqliteMigrations embed.FS
 
 //go:embed migrations/postgres/*.sql
 var postgresMigrations embed.FS
@@ -47,46 +40,13 @@ func Init() error {
 func initDB() error {
 	conf := config.GetConf()
 
-	// Ensure data directory exists for SQLite
-	if conf.Database.Driver == "sqlite3" {
-		if _, err := os.Stat("data"); os.IsNotExist(err) {
-			if err := os.Mkdir("data", 0755); err != nil {
-				logger.Error("Failed to create data directory", "error", err)
-				return err
-			}
-		}
-	}
-
 	var err error
-	switch conf.Database.Driver {
-	case "postgres":
-		DB, err = gorm.Open("postgres", conf.Database.DSN)
-		if err != nil {
-			logger.Error("Failed to connect to PostgreSQL", "error", err)
-			return err
-		}
-		logger.Info("Connected to PostgreSQL database")
-	default: // sqlite3
-		DB, err = gorm.Open("sqlite3", conf.Database.Path)
-		if err != nil {
-			logger.Error("Failed to connect to SQLite", "error", err)
-			return err
-		}
-
-		// Enable WAL mode for better concurrency
-		if err := DB.Exec("PRAGMA journal_mode=WAL").Error; err != nil {
-			logger.Warn("Failed to enable WAL mode", "error", err)
-		} else {
-			logger.Debug("SQLite WAL mode enabled")
-		}
-
-		// Optimize SQLite settings
-		DB.Exec("PRAGMA synchronous=NORMAL")
-		DB.Exec("PRAGMA cache_size=10000")
-		DB.Exec("PRAGMA temp_store=MEMORY")
-
-		logger.Info("Connected to SQLite database", "path", conf.Database.Path)
+	DB, err = gorm.Open("postgres", conf.Database.DSN)
+	if err != nil {
+		logger.Error("Failed to connect to PostgreSQL", "error", err)
+		return err
 	}
+	logger.Info("Connected to PostgreSQL database")
 
 	// Configure connection pool
 	sqlDB := DB.DB()
@@ -101,42 +61,28 @@ func initDB() error {
 }
 
 // Migrate runs all schema and data migrations using golang-migrate.
-// SQL migration files are embedded per dialect (sqlite3/postgres).
+// SQL migration files are embedded for PostgreSQL.
 // It must be called after Init().
 func Migrate() error {
 	if DB == nil {
 		return errors.New("database not initialized; call Init() first")
 	}
 
-	conf := config.GetConf()
 	sqlDB := DB.DB()
 
 	var sourceDriver source.Driver
 	var dbDriver database.Driver
-	var driverName string
-	var err error
 
-	switch conf.Database.Driver {
-	case "postgres":
-		sourceDriver, err = iofs.New(postgresMigrations, "migrations/postgres")
-		if err != nil {
-			return err
-		}
-		dbDriver, err = pgmigrate.WithInstance(sqlDB, &pgmigrate.Config{})
-		driverName = "postgres"
-	default:
-		sourceDriver, err = iofs.New(sqliteMigrations, "migrations/sqlite3")
-		if err != nil {
-			return err
-		}
-		dbDriver, err = sqlitemigrate.WithInstance(sqlDB, &sqlitemigrate.Config{})
-		driverName = "sqlite3"
+	sourceDriver, err := iofs.New(postgresMigrations, "migrations/postgres")
+	if err != nil {
+		return err
 	}
+	dbDriver, err = pgmigrate.WithInstance(sqlDB, &pgmigrate.Config{})
 	if err != nil {
 		return err
 	}
 
-	m, err := migrate.NewWithInstance("iofs", sourceDriver, driverName, dbDriver)
+	m, err := migrate.NewWithInstance("iofs", sourceDriver, "postgres", dbDriver)
 	if err != nil {
 		return err
 	}
@@ -147,7 +93,7 @@ func Migrate() error {
 
 	// Guard: refuse to start if DB has encrypted data but encryption is disabled
 	if !crypto.IsEnabled() && isEncryptionMigrated() {
-		return errors.New("database contains encrypted data but encryption key is not configured; set encryption.key in config")
+		return errors.New("database contains encrypted data but encryption key is not configured; set podman secret findsenryu-encryption-key")
 	}
 
 	// Encrypt existing plaintext senryu data if encryption is enabled.

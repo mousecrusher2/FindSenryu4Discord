@@ -1,42 +1,75 @@
 services:
-  init:
-    image: busybox:latest
-    volumes:
-      - "findsenryu-data:/app/data"
-    command: ["sh", "-c", "mkdir -p /app/data/backups && chown -R 65532:65532 /app/data"]
   migrate:
-    image: ${FINDSENRYU_IMAGE}
-    depends_on:
-      init:
-        condition: service_completed_successfully
+    image: <ocir-image-uri>
     entrypoint: ["/app/migrate"]
-    volumes:
-      - "findsenryu-data:/app/data"
-      - "./config.toml:/app/config.toml:ro"
-    environment:
-      TZ: Asia/Tokyo
+    secrets:
+      - findsenryu-discord-token
+      - findsenryu-discord-playing
+      - findsenryu-discord-welcome-enabled
+      - findsenryu-database-dsn
+      - findsenryu-log-level
+      - findsenryu-log-format
+      - findsenryu-admin-owner-ids
+      - findsenryu-admin-guild-id
+      - findsenryu-admin-log-channel-id
+      - findsenryu-admin-report-channel-id
+      - findsenryu-admin-contact-channel-id
+      - findsenryu-server-enabled
+      - findsenryu-server-port
+      - findsenryu-encryption-key
   app:
-    image: ${FINDSENRYU_IMAGE}
+    image: <ocir-image-uri>
     restart: always
     depends_on:
       migrate:
         condition: service_completed_successfully
     ports:
       - "9090:9090"
-    volumes:
-      - "findsenryu-data:/app/data"
-      - "./config.toml:/app/config.toml:ro"
-    environment:
-      # Override config via environment variables
-      # FINDSENRYU_LOG_LEVEL: debug
-      # FINDSENRYU_LOG_FORMAT: json
-      # FINDSENRYU_DATABASE_DRIVER: postgres
-      # FINDSENRYU_DATABASE_DSN: "host=db user=findsenryu dbname=findsenryu sslmode=disable"
-      TZ: Asia/Tokyo
+    secrets:
+      - findsenryu-discord-token
+      - findsenryu-discord-playing
+      - findsenryu-discord-welcome-enabled
+      - findsenryu-database-dsn
+      - findsenryu-log-level
+      - findsenryu-log-format
+      - findsenryu-admin-owner-ids
+      - findsenryu-admin-guild-id
+      - findsenryu-admin-log-channel-id
+      - findsenryu-admin-report-channel-id
+      - findsenryu-admin-contact-channel-id
+      - findsenryu-server-enabled
+      - findsenryu-server-port
+      - findsenryu-encryption-key
     # healthcheck disabled — distroless has no shell/curl
     # Use Docker restart policy for recovery
     stop_grace_period: 30s
 
-volumes:
-  findsenryu-data:
-    name: findsenryu-data
+secrets:
+  findsenryu-discord-token:
+    external: true
+  findsenryu-discord-playing:
+    external: true
+  findsenryu-discord-welcome-enabled:
+    external: true
+  findsenryu-database-dsn:
+    external: true
+  findsenryu-log-level:
+    external: true
+  findsenryu-log-format:
+    external: true
+  findsenryu-admin-owner-ids:
+    external: true
+  findsenryu-admin-guild-id:
+    external: true
+  findsenryu-admin-log-channel-id:
+    external: true
+  findsenryu-admin-report-channel-id:
+    external: true
+  findsenryu-admin-contact-channel-id:
+    external: true
+  findsenryu-server-enabled:
+    external: true
+  findsenryu-server-port:
+    external: true
+  findsenryu-encryption-key:
+    external: true
