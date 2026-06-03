@@ -35,6 +35,7 @@ func run(args []string, stderr io.Writer) int {
 	defer cancel()
 
 	if err := check(ctx, url); err != nil {
+		fmt.Fprintf(os.Stdout, "healthcheck failed: %v\n", err)
 		fmt.Fprintf(stderr, "healthcheck failed: %v\n", err)
 		return 1
 	}
