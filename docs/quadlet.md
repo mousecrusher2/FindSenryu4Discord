@@ -9,7 +9,7 @@
 
 named volume と `config.toml` bind mount は使いません。設定はすべて Podman secret として container 内の `/run/secrets/<secret-name>` に mount します。PostgreSQL は外部にあるものへ接続する前提で、この repository では PostgreSQL container を用意しません。
 
-Quadlet generator が生成する service は transient unit であるため `systemctl enable` は使えません。代わりに Quadlet file の `[Install] WantedBy=findsenryu4discord.target` を generator が生成時に処理し、`systemctl enable` 相当の `.wants/` symlink を自動的に作成します。そのため `findsenryu4discord.target` 側に `Wants=` を書く必要はありません。起動順序と失敗時の依存は各 service 側の `Requires=` / `After=` / `Before=` で表現します。
+Quadlet generator が生成する service は transient unit であるため `systemctl enable` は使えません。代わりに Quadlet file の `[Install] WantedBy=findsenryu4discord.target` を generator が生成時に処理し、`systemctl enable` 相当の `.wants/` symlink を自動的に作成します。そのため `findsenryu4discord.target` 側に `Wants=` を書く必要はありません。起動順序と失敗時の依存は各 service 側の `Requires=` / `After=` / `Before=` で表現します。また、`findsenryu-migrate` (oneshot型) には `Restart=on-failure` を設定しており、DB 起動の遅延などで失敗した場合も、systemd が成功するまで自動で再試行します。
 
 ## User Namespace
 
