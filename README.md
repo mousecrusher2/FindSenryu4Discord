@@ -125,7 +125,6 @@ findsenryu-pgsslmode
 
 ```text
 findsenryu-discord-playing
-findsenryu-discord-welcome-enabled
 findsenryu-log-level
 findsenryu-log-format
 findsenryu-admin-owner-ids

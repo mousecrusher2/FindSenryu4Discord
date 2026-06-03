@@ -10,7 +10,6 @@ LogDriver=passthrough
 StopTimeout=60
 Secret=findsenryu-discord-token
 Secret=findsenryu-discord-playing
-Secret=findsenryu-discord-welcome-enabled
 Secret=findsenryu-pghost
 Secret=findsenryu-pgdatabase
 Secret=findsenryu-pguser

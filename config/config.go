@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 )
@@ -15,7 +14,6 @@ const secretDir = "/run/secrets"
 const (
 	secretDiscordToken          = "findsenryu-discord-token"
 	secretDiscordPlaying        = "findsenryu-discord-playing"
-	secretDiscordWelcomeEnabled = "findsenryu-discord-welcome-enabled"
 	secretPGHost                = "findsenryu-pghost"
 	secretPGDatabase            = "findsenryu-pgdatabase"
 	secretPGUser                = "findsenryu-pguser"
@@ -43,9 +41,8 @@ type Config struct {
 
 // DiscordConfig holds Discord-related configuration.
 type DiscordConfig struct {
-	Token          string
-	Playing        string
-	WelcomeEnabled *bool
+	Token   string
+	Playing string
 }
 
 // DatabaseConfig holds database configuration.
@@ -113,10 +110,7 @@ func LoadMigration() (*Config, error) {
 	return conf, loadErr
 }
 
-func boolPtr(v bool) *bool { return &v }
-
 func setDefaults(c *Config) {
-	c.Discord.WelcomeEnabled = boolPtr(true)
 	c.Log.Level = "info"
 	c.Log.Format = "text"
 }
@@ -146,9 +140,6 @@ func loadDiscordSecrets(c *Config, dir string) error {
 	}
 	c.Discord.Playing, err = readOptionalSecret(dir, secretDiscordPlaying)
 	if err != nil {
-		return err
-	}
-	if c.Discord.WelcomeEnabled, err = readOptionalBoolSecret(dir, secretDiscordWelcomeEnabled, c.Discord.WelcomeEnabled); err != nil {
 		return err
 	}
 
@@ -234,22 +225,6 @@ func readOptionalSecretWithDefault(dir, name, defaultValue string) (string, erro
 	return value, nil
 }
 
-func readOptionalBoolSecret(dir, name string, defaultValue *bool) (*bool, error) {
-	value, exists, err := readSecretFile(dir, name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists || value == "" {
-		return defaultValue, nil
-	}
-
-	parsed, err := strconv.ParseBool(value)
-	if err != nil {
-		return nil, fmt.Errorf("invalid boolean podman secret %q: %w", name, err)
-	}
-	return boolPtr(parsed), nil
-}
-
 func readOptionalListSecret(dir, name string) ([]string, error) {
 	value, exists, err := readSecretFile(dir, name)
 	if err != nil || !exists || value == "" {
@@ -330,12 +305,4 @@ func GetConf() *Config {
 		}
 	}
 	return conf
-}
-
-// IsWelcomeEnabled returns whether the welcome message feature is enabled.
-func (c *DiscordConfig) IsWelcomeEnabled() bool {
-	if c.WelcomeEnabled == nil {
-		return true
-	}
-	return *c.WelcomeEnabled
 }
