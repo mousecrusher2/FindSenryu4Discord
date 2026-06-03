@@ -35,5 +35,3 @@ SyslogLevelPrefix=yes
 Type=oneshot
 RemainAfterExit=yes
 
-[Install]
-WantedBy=findsenryu4discord.target

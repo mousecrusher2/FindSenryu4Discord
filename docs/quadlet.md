@@ -9,7 +9,7 @@
 
 named volume と `config.toml` bind mount は使いません。設定はすべて Podman secret として container 内の `/run/secrets/<secret-name>` に mount します。PostgreSQL は外部にあるものへ接続する前提で、この repository では PostgreSQL container を用意しません。
 
-`findsenryu4discord.target` には生成 service への `Requires=` を書きません。Quadlet file と target は別に配置され、Quadlet service は `systemctl daemon-reload` 時に生成されるためです。生成後の `findsenryu-image.service` / `findsenryu-migrate.service` / `findsenryu-app.service` を enable すると、各 unit の `[Install] WantedBy=findsenryu4discord.target` により `findsenryu4discord.target.wants/` に接続されます。起動順序と失敗時の依存は各 service 側の `Requires=` / `After=` / `Before=` で表現します。
+`findsenryu4discord.target` は `Wants=` で生成 service を列挙します。Quadlet generator は `[Install]` セクションを無視するため、Quadlet file に `[Install] WantedBy=` を書いても `systemctl enable` は使えません。代わりに target 側の `Wants=` で service を接続し、target の start 時に生成 service を pull-in します。起動順序と失敗時の依存は各 service 側の `Requires=` / `After=` / `Before=` で表現します。
 
 ## User Namespace
 
@@ -112,13 +112,11 @@ sudo chmod 600 /etc/containers/auth/findsenryu4discord.json
 
 `docker-credential-ocir` は OCI CLI を使って OCIR token を取得します。OCI instance principal で認証する前提では `podman login` と静的な OCI Auth Token は使いません。deploy host の instance を Dynamic Group に入れ、OCIR repository を pull できる policy を付与してください。
 
-Quadlet と target を install します。`findsenryu4discord.target` は Quadlet file ではないため、`podman quadlet install --replace quadlet/` では配置されません。
+Quadlet と target を install します。`findsenryu4discord.target` は Quadlet file ではないため、`podman quadlet install --replace quadlet/` では配置されません。target を先に配置してから `podman quadlet install` を実行してください。`podman quadlet install` は内部で `systemctl daemon-reload` を実行するため、この時点で target の `Wants=` と生成 service が同時に揃います。
 
 ```bash
-sudo podman quadlet install --replace quadlet/
 sudo install -D -m 0644 systemd/findsenryu4discord.target /etc/systemd/system/findsenryu4discord.target
-sudo systemctl daemon-reload
-sudo systemctl enable findsenryu-image.service findsenryu-migrate.service findsenryu-app.service
+sudo podman quadlet install --replace quadlet/
 sudo systemctl enable --now findsenryu4discord.target
 ```
 
@@ -134,10 +132,8 @@ sudo journalctl -u findsenryu-app.service -p warning
 イメージや Quadlet file を更新した場合は target を restart します。これにより `migrate` が実行されてから `app` が起動します。
 
 ```bash
-sudo podman quadlet install --replace quadlet/
 sudo install -D -m 0644 systemd/findsenryu4discord.target /etc/systemd/system/findsenryu4discord.target
-sudo systemctl daemon-reload
-sudo systemctl enable findsenryu-image.service findsenryu-migrate.service findsenryu-app.service
+sudo podman quadlet install --replace quadlet/
 sudo systemctl restart findsenryu4discord.target
 ```
 
@@ -207,7 +203,7 @@ podlet --file quadlet --overwrite --name findsenryu-app podman run \
   "$image"
 ```
 
-再生成後は、管理対象ファイルの `findsenryu.image`、container 側の `Image=findsenryu.image`、target 構成、`[Unit]` / `[Service]` の依存関係、`[Install] WantedBy=findsenryu4discord.target` を再適用してください。`findsenryu4discord.target` は Quadlet file ではないため、`podman quadlet install --replace quadlet/` では配置されません。`systemd/findsenryu4discord.target` を systemd system unit として `/etc/systemd/system/` に配置してください。
+再生成後は、管理対象ファイルの `findsenryu.image`、container 側の `Image=findsenryu.image`、target 構成、`[Unit]` / `[Service]` の依存関係を再適用してください。Quadlet file に `[Install]` セクションは書かないでください（generator が無視するため）。`findsenryu4discord.target` は Quadlet file ではないため、`podman quadlet install --replace quadlet/` では配置されません。`systemd/findsenryu4discord.target` を systemd system unit として `/etc/systemd/system/` に配置してください。
 
 ## 参考
 
