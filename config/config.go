@@ -3,7 +3,6 @@ package config
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -252,7 +251,7 @@ func validate(c *Config) error {
 		return errors.New("postgres dsn is required")
 	}
 	if c.Admin.GuildID != "" && len(c.Admin.OwnerIDs) == 0 {
-		log.Println("WARNING: admin guild id is set but admin owner ids are empty; admin commands will be registered but unusable")
+		fmt.Fprintln(os.Stderr, "<4>WARNING: admin guild id is set but admin owner ids are empty; admin commands will be registered but unusable")
 	}
 	return nil
 }
@@ -276,7 +275,8 @@ func GetConf() *Config {
 		var err error
 		conf, err = Load()
 		if err != nil {
-			log.Fatalf("Failed to load config: %v", err)
+			fmt.Fprintf(os.Stderr, "<3>Failed to load config: %v\n", err)
+			os.Exit(1)
 		}
 	}
 	return conf

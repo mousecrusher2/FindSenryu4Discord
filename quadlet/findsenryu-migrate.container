@@ -8,6 +8,7 @@ Before=findsenryu-app.service
 ContainerName=findsenryu-migrate
 Entrypoint=/app/migrate
 Image=findsenryu.image
+LogDriver=passthrough
 Secret=findsenryu-discord-token
 Secret=findsenryu-discord-playing
 Secret=findsenryu-discord-welcome-enabled
@@ -25,6 +26,9 @@ Secret=findsenryu-encryption-key
 UserNS=auto
 
 [Service]
+StandardOutput=journal
+StandardError=journal
+SyslogLevelPrefix=yes
 Type=oneshot
 RemainAfterExit=yes
 

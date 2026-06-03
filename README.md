@@ -5,6 +5,10 @@
   Discordで川柳を検出します
 </p>
 
+## このリポジトリについて
+
+このリポジトリは [u16-io/FindSenryu4Discord](https://github.com/u16-io/FindSenryu4Discord) の fork です。
+
 ## Invite
 
 <p align="center">

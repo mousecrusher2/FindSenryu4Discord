@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"sync"
 )
 
 var defaultLogger *slog.Logger
@@ -26,20 +27,110 @@ func Init(cfg Config) {
 		output = os.Stdout
 	}
 
-	var handler slog.Handler
 	opts := &slog.HandlerOptions{
 		Level:     level,
 		AddSource: level == slog.LevelDebug,
 	}
 
+	priorityOutput := &journalPriorityWriter{output: output}
+	var handler slog.Handler
 	if strings.ToLower(cfg.Format) == "json" {
-		handler = slog.NewJSONHandler(output, opts)
+		handler = slog.NewJSONHandler(priorityOutput, opts)
 	} else {
-		handler = slog.NewTextHandler(output, opts)
+		handler = slog.NewTextHandler(priorityOutput, opts)
+	}
+	handler = &journalPriorityHandler{
+		handler: handler,
+		writer:  priorityOutput,
+		mu:      &sync.Mutex{},
 	}
 
 	defaultLogger = slog.New(handler)
 	slog.SetDefault(defaultLogger)
+}
+
+type journalPriorityHandler struct {
+	handler slog.Handler
+	writer  *journalPriorityWriter
+	mu      *sync.Mutex
+}
+
+func (h *journalPriorityHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	return h.handler.Enabled(ctx, level)
+}
+
+func (h *journalPriorityHandler) Handle(ctx context.Context, record slog.Record) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	h.writer.prefix = journalPriorityPrefix(record.Level)
+	defer func() {
+		h.writer.prefix = ""
+	}()
+
+	return h.handler.Handle(ctx, record)
+}
+
+func (h *journalPriorityHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return &journalPriorityHandler{
+		handler: h.handler.WithAttrs(attrs),
+		writer:  h.writer,
+		mu:      h.mu,
+	}
+}
+
+func (h *journalPriorityHandler) WithGroup(name string) slog.Handler {
+	return &journalPriorityHandler{
+		handler: h.handler.WithGroup(name),
+		writer:  h.writer,
+		mu:      h.mu,
+	}
+}
+
+type journalPriorityWriter struct {
+	output io.Writer
+	prefix string
+}
+
+func (w *journalPriorityWriter) Write(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+	if w.prefix == "" {
+		return w.output.Write(p)
+	}
+
+	out := make([]byte, 0, len(p)+len(w.prefix))
+	lineStart := true
+	for _, b := range p {
+		if lineStart {
+			out = append(out, w.prefix...)
+			lineStart = false
+		}
+		out = append(out, b)
+		if b == '\n' {
+			lineStart = true
+		}
+	}
+
+	if _, err := w.output.Write(out); err != nil {
+		return 0, err
+	}
+	return len(p), nil
+}
+
+// systemd/journald parses leading "<n>" syslog priority prefixes on stdout/stderr.
+func journalPriorityPrefix(level slog.Level) string {
+	switch {
+	case level < slog.LevelInfo:
+		return "<7>" // debug
+	case level < slog.LevelWarn:
+		return "<6>" // info
+	case level < slog.LevelError:
+		return "<4>" // warning
+	default:
+		return "<3>" // error
+	}
 }
 
 func parseLevel(level string) slog.Level {

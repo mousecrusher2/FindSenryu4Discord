@@ -6,6 +6,7 @@ After=findsenryu-migrate.service findsenryu-image.service
 [Container]
 ContainerName=findsenryu-app
 Image=findsenryu.image
+LogDriver=passthrough
 PublishPort=9090:9090
 Secret=findsenryu-discord-token
 Secret=findsenryu-discord-playing
@@ -24,6 +25,9 @@ Secret=findsenryu-encryption-key
 UserNS=auto
 
 [Service]
+StandardOutput=journal
+StandardError=journal
+SyslogLevelPrefix=yes
 Restart=always
 TimeoutStopSec=30
 
