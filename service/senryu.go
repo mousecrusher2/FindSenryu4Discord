@@ -1,10 +1,11 @@
 package service
 
 import (
+	"errors"
+	"fmt"
 	"math/rand"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/jinzhu/gorm"
 	"github.com/mousecrusher2/FindSenryu4Discord/db"
 	"github.com/mousecrusher2/FindSenryu4Discord/model"
@@ -25,7 +26,7 @@ func CreateSenryu(s model.Senryu) (model.Senryu, error) {
 			"server_id", s.ServerID,
 			"author_id", s.AuthorID,
 		)
-		return s, errors.Wrap(err, "failed to create senryu")
+		return s, fmt.Errorf("failed to create senryu: %w", err)
 	}
 
 	logger.Debug("Senryu created",
@@ -48,7 +49,7 @@ func GetLastSenryu(serverID string) (*model.Senryu, error) {
 			"error", err,
 			"server_id", serverID,
 		)
-		return nil, errors.Wrap(err, "failed to get last senryu")
+		return nil, fmt.Errorf("failed to get last senryu: %w", err)
 	}
 
 	return &s, nil
@@ -63,7 +64,7 @@ func GetThreeRandomSenryus(serverID string) ([]model.Senryu, error) {
 			"error", err,
 			"server_id", serverID,
 		)
-		return nil, errors.Wrap(err, "failed to count senryus")
+		return nil, fmt.Errorf("failed to count senryus: %w", err)
 	}
 
 	if count == 0 {
@@ -79,7 +80,7 @@ func GetThreeRandomSenryus(serverID string) ([]model.Senryu, error) {
 				"error", err,
 				"server_id", serverID,
 			)
-			return nil, errors.Wrap(err, "failed to get random senryu")
+			return nil, fmt.Errorf("failed to get random senryu: %w", err)
 		}
 		result = append(result, s)
 	}
@@ -108,7 +109,7 @@ func GetRanking(serverID string) ([]RankResult, error) {
 			"error", err,
 			"server_id", serverID,
 		)
-		return nil, errors.Wrap(err, "failed to get ranking")
+		return nil, fmt.Errorf("failed to get ranking: %w", err)
 	}
 
 	var results []RankResult
@@ -140,7 +141,7 @@ func GetRecentSenryusByAuthor(serverID, authorID string, limit int) ([]model.Sen
 			"server_id", serverID,
 			"author_id", authorID,
 		)
-		return nil, errors.Wrap(err, "failed to get recent senryus by author")
+		return nil, fmt.Errorf("failed to get recent senryus by author: %w", err)
 	}
 
 	return senryus, nil
@@ -157,7 +158,7 @@ func GetSenryusByAuthorPaged(serverID, authorID string, limit, offset int) ([]mo
 			"server_id", serverID,
 			"author_id", authorID,
 		)
-		return nil, errors.Wrap(err, "failed to get senryus by author paged")
+		return nil, fmt.Errorf("failed to get senryus by author paged: %w", err)
 	}
 
 	return senryus, nil
@@ -175,7 +176,7 @@ func CountSenryusByAuthor(serverID, authorID string) (int, error) {
 			"server_id", serverID,
 			"author_id", authorID,
 		)
-		return 0, errors.Wrap(err, "failed to count senryus by author")
+		return 0, fmt.Errorf("failed to count senryus by author: %w", err)
 	}
 
 	return count, nil
@@ -194,7 +195,7 @@ func GetSenryuByID(id int, serverID string) (*model.Senryu, error) {
 			"id", id,
 			"server_id", serverID,
 		)
-		return nil, errors.Wrap(err, "failed to get senryu by ID")
+		return nil, fmt.Errorf("failed to get senryu by ID: %w", err)
 	}
 
 	return &s, nil
@@ -210,7 +211,7 @@ func DeleteSenryu(id int, serverID string) error {
 			"id", id,
 			"server_id", serverID,
 		)
-		return errors.Wrap(result.Error, "failed to delete senryu")
+		return fmt.Errorf("failed to delete senryu: %w", result.Error)
 	}
 
 	if result.RowsAffected == 0 {
@@ -233,7 +234,7 @@ func DeleteSenryuByServer(serverID string) (int64, error) {
 			"error", result.Error,
 			"server_id", serverID,
 		)
-		return 0, errors.Wrap(result.Error, "failed to delete senryus by server")
+		return 0, fmt.Errorf("failed to delete senryus by server: %w", result.Error)
 	}
 
 	logger.Info("Senryus deleted by server",
@@ -256,7 +257,7 @@ func CountUniqueAuthorsByDateRange(from, to time.Time) (int64, error) {
 			"from", from,
 			"to", to,
 		)
-		return 0, errors.Wrap(err, "failed to count unique authors by date range")
+		return 0, fmt.Errorf("failed to count unique authors by date range: %w", err)
 	}
 
 	return count, nil
@@ -274,7 +275,7 @@ func CountSenryuByDateRange(from, to time.Time) (int64, error) {
 			"from", from,
 			"to", to,
 		)
-		return 0, errors.Wrap(err, "failed to count senryus by date range")
+		return 0, fmt.Errorf("failed to count senryus by date range: %w", err)
 	}
 
 	return count, nil
@@ -292,12 +293,12 @@ func GetServerStats(serverID string) (ServerStats, error) {
 	var stats ServerStats
 
 	if err := db.DB.Model(&model.Senryu{}).Where(&model.Senryu{ServerID: serverID}).Count(&stats.TotalSenryus).Error; err != nil {
-		return stats, errors.Wrap(err, "failed to count senryus")
+		return stats, fmt.Errorf("failed to count senryus: %w", err)
 	}
 
 	var count int64
 	if err := db.DB.Model(&model.Senryu{}).Where(&model.Senryu{ServerID: serverID}).Select("COUNT(DISTINCT author_id)").Count(&count).Error; err != nil {
-		return stats, errors.Wrap(err, "failed to count unique authors")
+		return stats, fmt.Errorf("failed to count unique authors: %w", err)
 	}
 	stats.UniqueAuthors = count
 

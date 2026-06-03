@@ -1,9 +1,10 @@
 package service
 
 import (
+	"errors"
+	"fmt"
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/mousecrusher2/FindSenryu4Discord/db"
 	"github.com/mousecrusher2/FindSenryu4Discord/model"
 	"github.com/mousecrusher2/FindSenryu4Discord/pkg/logger"
@@ -58,7 +59,7 @@ func OptOutDetection(serverID, userID, setBy string) error {
 			"server_id", serverID,
 			"user_id", userID,
 		)
-		return errors.Wrap(err, "failed to opt out detection")
+		return fmt.Errorf("failed to opt out detection: %w", err)
 	}
 
 	key := optOutCacheKey(serverID, userID)
@@ -77,7 +78,7 @@ func DeleteOptOutByServer(serverID string) (int64, error) {
 			"error", result.Error,
 			"server_id", serverID,
 		)
-		return 0, errors.Wrap(result.Error, "failed to delete opt-outs by server")
+		return 0, fmt.Errorf("failed to delete opt-outs by server: %w", result.Error)
 	}
 
 	// Invalidate all cache entries for this server by clearing matching keys.
@@ -116,7 +117,7 @@ func OptInDetection(serverID, userID string, force bool) error {
 			"server_id", serverID,
 			"user_id", userID,
 		)
-		return errors.Wrap(err, "failed to opt in detection")
+		return fmt.Errorf("failed to opt in detection: %w", err)
 	}
 
 	key := optOutCacheKey(serverID, userID)
@@ -140,7 +141,7 @@ func AdminBanDetection(serverID, userID string) error {
 			"server_id", serverID,
 			"user_id", userID,
 		)
-		return errors.Wrap(err, "failed to ban user")
+		return fmt.Errorf("failed to ban user: %w", err)
 	}
 
 	optOutCache.Store(optOutCacheKey(serverID, userID), true)
@@ -176,7 +177,7 @@ func ListOptOutsByServer(serverID string) ([]model.DetectionOptOut, error) {
 			"error", err,
 			"server_id", serverID,
 		)
-		return nil, errors.Wrap(err, "failed to list opt-outs")
+		return nil, fmt.Errorf("failed to list opt-outs: %w", err)
 	}
 	return optOuts, nil
 }

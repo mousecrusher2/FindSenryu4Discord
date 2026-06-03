@@ -1,10 +1,10 @@
 package service
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/cockroachdb/errors"
 	"github.com/mousecrusher2/FindSenryu4Discord/db"
 	"github.com/mousecrusher2/FindSenryu4Discord/model"
 	"github.com/mousecrusher2/FindSenryu4Discord/pkg/logger"
@@ -101,7 +101,7 @@ func SetChannelTypeEnabled(guildID string, channelType discordgo.ChannelType, en
 				"guild_id", guildID,
 				"channel_type", int(channelType),
 			)
-			return errors.Wrap(err, "failed to delete channel type setting")
+			return fmt.Errorf("failed to delete channel type setting: %w", err)
 		}
 		invalidateGuildCache(guildID)
 		return nil
@@ -121,7 +121,7 @@ func SetChannelTypeEnabled(guildID string, channelType discordgo.ChannelType, en
 			"guild_id", guildID,
 			"channel_type", int(channelType),
 		)
-		return errors.Wrap(err, "failed to upsert channel type setting")
+		return fmt.Errorf("failed to upsert channel type setting: %w", err)
 	}
 
 	invalidateGuildCache(guildID)
@@ -172,7 +172,7 @@ func DeleteChannelConfigByGuild(guildID string) (int64, error) {
 			"error", result.Error,
 			"guild_id", guildID,
 		)
-		return 0, errors.Wrap(result.Error, "failed to delete channel config by guild")
+		return 0, fmt.Errorf("failed to delete channel config by guild: %w", result.Error)
 	}
 
 	invalidateGuildCache(guildID)

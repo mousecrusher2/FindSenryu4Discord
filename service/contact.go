@@ -1,9 +1,9 @@
 package service
 
 import (
+	"fmt"
 	"sync/atomic"
 
-	"github.com/cockroachdb/errors"
 	"github.com/jinzhu/gorm"
 	"github.com/mousecrusher2/FindSenryu4Discord/db"
 	"github.com/mousecrusher2/FindSenryu4Discord/model"
@@ -33,7 +33,7 @@ func GetContactAdditionalMessage() (string, error) {
 			return "", nil
 		}
 		logger.Error("Failed to get contact additional message", "error", err)
-		return "", errors.Wrap(err, "failed to get contact additional message")
+		return "", fmt.Errorf("failed to get contact additional message: %w", err)
 	}
 
 	contactAdditionalMessageCache.Store(&meta.Value)
@@ -48,7 +48,7 @@ func SetContactAdditionalMessage(message string) error {
 		Assign(model.Metadata{Value: message}).
 		FirstOrCreate(&meta).Error; err != nil {
 		logger.Error("Failed to set contact additional message", "error", err)
-		return errors.Wrap(err, "failed to set contact additional message")
+		return fmt.Errorf("failed to set contact additional message: %w", err)
 	}
 
 	msg := message
@@ -63,7 +63,7 @@ func ClearContactAdditionalMessage() error {
 	if err := db.DB.Where("key = ?", metadataKeyContactAdditionalMessage).
 		Delete(&model.Metadata{}).Error; err != nil {
 		logger.Error("Failed to clear contact additional message", "error", err)
-		return errors.Wrap(err, "failed to clear contact additional message")
+		return fmt.Errorf("failed to clear contact additional message: %w", err)
 	}
 
 	empty := ""

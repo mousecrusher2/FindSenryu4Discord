@@ -1,11 +1,11 @@
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/cockroachdb/errors"
 	"github.com/mousecrusher2/FindSenryu4Discord/pkg/logger"
 	"github.com/mousecrusher2/FindSenryu4Discord/service"
 )

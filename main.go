@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -11,7 +12,6 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/cockroachdb/errors"
 	"github.com/mousecrusher2/FindSenryu4Discord/commands"
 	"github.com/mousecrusher2/FindSenryu4Discord/config"
 	"github.com/mousecrusher2/FindSenryu4Discord/db"

@@ -1,9 +1,10 @@
 package service
 
 import (
+	"errors"
+	"fmt"
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/mousecrusher2/FindSenryu4Discord/db"
 	"github.com/mousecrusher2/FindSenryu4Discord/model"
 	"github.com/mousecrusher2/FindSenryu4Discord/pkg/logger"
@@ -44,7 +45,7 @@ func ToMute(channelID, guildID string) error {
 			"channel_id", channelID,
 			"guild_id", guildID,
 		)
-		return errors.Wrap(err, "failed to mute channel")
+		return fmt.Errorf("failed to mute channel: %w", err)
 	}
 
 	muteCache.Store(channelID, true)
@@ -60,7 +61,7 @@ func ToUnMute(id string) error {
 			"error", err,
 			"channel_id", id,
 		)
-		return errors.Wrap(err, "failed to unmute channel")
+		return fmt.Errorf("failed to unmute channel: %w", err)
 	}
 
 	muteCache.Store(id, false)

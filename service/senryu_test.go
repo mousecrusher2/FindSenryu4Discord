@@ -1,9 +1,9 @@
 package service
 
 import (
+	"errors"
 	"testing"
 
-	"github.com/cockroachdb/errors"
 	"github.com/jinzhu/gorm"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/mousecrusher2/FindSenryu4Discord/db"
