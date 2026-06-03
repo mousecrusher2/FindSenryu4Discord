@@ -112,15 +112,23 @@ sudo chmod 600 /etc/containers/auth/findsenryu4discord.json
 
 `docker-credential-ocir` は OCI CLI を使って OCIR token を取得します。OCI instance principal で認証する前提では `podman login` と静的な OCI Auth Token は使いません。deploy host の instance を Dynamic Group に入れ、OCIR repository を pull できる policy を付与してください。
 
-Quadlet と target を install します。`findsenryu4discord.target` は Quadlet file ではないため、`podman quadlet install --replace quadlet/` では配置されません。target を先に配置してから `podman quadlet install` を実行してください。`podman quadlet install` は内部で `systemctl daemon-reload` を実行するため、この時点で target の `Wants=` と生成 service が同時に揃います。
+Quadlet と target を install します。repository を clone する必要はありません。
+
+`findsenryu4discord.target` は Quadlet file ではないため、`podman quadlet install` では配置できません。`curl` で GitHub から直接取得して `/etc/systemd/system/` に配置します。target を先に配置してから `podman quadlet install` を実行してください。`podman quadlet install` は内部で `systemctl daemon-reload` を実行するため、この時点で target の `Wants=` と生成 service が同時に揃います。
 
 ```bash
-sudo install -D -m 0644 systemd/findsenryu4discord.target /etc/systemd/system/findsenryu4discord.target
-sudo podman quadlet install --replace quadlet/
+repo=https://github.com/mousecrusher2/FindSenryu4Discord
+
+sudo curl -fsSL -o /etc/systemd/system/findsenryu4discord.target \
+  "$repo/raw/refs/heads/master/systemd/findsenryu4discord.target"
+sudo podman quadlet install --replace \
+  "$repo/blob/master/quadlet/findsenryu.image" \
+  "$repo/blob/master/quadlet/findsenryu-migrate.container" \
+  "$repo/blob/master/quadlet/findsenryu-app.container"
 sudo systemctl enable --now findsenryu4discord.target
 ```
 
-`sudo podman quadlet install --replace quadlet/` の出力先は rootful Quadlet search path である `/etc/containers/systemd/` であることを確認してください。`findsenryu.image` は `AuthFile=/etc/containers/auth/findsenryu4discord.json`、`Image=kix.ocir.io/axkvg5nxhc7t/senryu:latest`、`Policy=always` を指定しています。この authfile は `kix.ocir.io` に対して credential helper `ocir` を使う設定です。`findsenryu-migrate.container` と `findsenryu-app.container` は `Image=findsenryu.image` を参照するため、起動時の pull は `findsenryu-image.service` 経由で実行されます。
+`sudo podman quadlet install` の出力先は rootful Quadlet search path である `/etc/containers/systemd/` であることを確認してください。`findsenryu.image` は `AuthFile=/etc/containers/auth/findsenryu4discord.json`、`Image=kix.ocir.io/axkvg5nxhc7t/senryu:latest`、`Policy=always` を指定しています。この authfile は `kix.ocir.io` に対して credential helper `ocir` を使う設定です。`findsenryu-migrate.container` と `findsenryu-app.container` は `Image=findsenryu.image` を参照するため、起動時の pull は `findsenryu-image.service` 経由で実行されます。
 
 ログ確認:
 
@@ -129,11 +137,17 @@ sudo journalctl -u findsenryu-app.service -f
 sudo journalctl -u findsenryu-app.service -p warning
 ```
 
-イメージや Quadlet file を更新した場合は target を restart します。これにより `migrate` が実行されてから `app` が起動します。
+イメージや Quadlet file を更新した場合は最新のファイルを再取得して target を restart します。これにより `migrate` が実行されてから `app` が起動します。
 
 ```bash
-sudo install -D -m 0644 systemd/findsenryu4discord.target /etc/systemd/system/findsenryu4discord.target
-sudo podman quadlet install --replace quadlet/
+repo=https://github.com/mousecrusher2/FindSenryu4Discord
+
+sudo curl -fsSL -o /etc/systemd/system/findsenryu4discord.target \
+  "$repo/raw/refs/heads/master/systemd/findsenryu4discord.target"
+sudo podman quadlet install --replace \
+  "$repo/blob/master/quadlet/findsenryu.image" \
+  "$repo/blob/master/quadlet/findsenryu-migrate.container" \
+  "$repo/blob/master/quadlet/findsenryu-app.container"
 sudo systemctl restart findsenryu4discord.target
 ```
 
@@ -203,7 +217,7 @@ podlet --file quadlet --overwrite --name findsenryu-app podman run \
   "$image"
 ```
 
-再生成後は、管理対象ファイルの `findsenryu.image`、container 側の `Image=findsenryu.image`、target 構成、`[Unit]` / `[Service]` の依存関係を再適用してください。Quadlet file に `[Install]` セクションは書かないでください（generator が無視するため）。`findsenryu4discord.target` は Quadlet file ではないため、`podman quadlet install --replace quadlet/` では配置されません。`systemd/findsenryu4discord.target` を systemd system unit として `/etc/systemd/system/` に配置してください。
+再生成後は、管理対象ファイルの `findsenryu.image`、container 側の `Image=findsenryu.image`、target 構成、`[Unit]` / `[Service]` の依存関係を再適用してください。Quadlet file に `[Install]` セクションは書かないでください（generator が無視するため）。`findsenryu4discord.target` は Quadlet file ではないため、`podman quadlet install` では配置されません。`curl` で取得して `/etc/systemd/system/` に配置してください。
 
 ## 参考
 
