@@ -16,7 +16,11 @@ const (
 	secretDiscordToken          = "findsenryu-discord-token"
 	secretDiscordPlaying        = "findsenryu-discord-playing"
 	secretDiscordWelcomeEnabled = "findsenryu-discord-welcome-enabled"
-	secretDatabaseDSN           = "findsenryu-database-dsn"
+	secretPGHost                = "findsenryu-pghost"
+	secretPGDatabase            = "findsenryu-pgdatabase"
+	secretPGUser                = "findsenryu-pguser"
+	secretPGPassword            = "findsenryu-pgpassword"
+	secretPGSSLMode             = "findsenryu-pgsslmode"
 	secretLogLevel              = "findsenryu-log-level"
 	secretLogFormat             = "findsenryu-log-format"
 	secretAdminOwnerIDs         = "findsenryu-admin-owner-ids"
@@ -51,7 +55,12 @@ type DiscordConfig struct {
 
 // DatabaseConfig holds database configuration.
 type DatabaseConfig struct {
-	DSN string
+	Host     string
+	Name     string
+	User     string
+	Password string
+	SSLMode  string
+	DSN      string
 }
 
 // LogConfig holds logging configuration.
@@ -120,9 +129,22 @@ func loadSecrets(c *Config, dir string) error {
 		return err
 	}
 
-	if c.Database.DSN, err = readSecret(dir, secretDatabaseDSN); err != nil {
+	if c.Database.Host, err = readSecret(dir, secretPGHost); err != nil {
 		return err
 	}
+	if c.Database.Name, err = readSecret(dir, secretPGDatabase); err != nil {
+		return err
+	}
+	if c.Database.User, err = readSecret(dir, secretPGUser); err != nil {
+		return err
+	}
+	if c.Database.Password, err = readSecret(dir, secretPGPassword); err != nil {
+		return err
+	}
+	if c.Database.SSLMode, err = readSecret(dir, secretPGSSLMode); err != nil {
+		return err
+	}
+	c.Database.DSN = buildPostgresDSN(c.Database)
 
 	if c.Log.Level, err = readOptionalSecretWithDefault(dir, secretLogLevel, c.Log.Level); err != nil {
 		return err
@@ -240,7 +262,7 @@ func validate(c *Config) error {
 		return errors.New("discord token is required")
 	}
 	if c.Database.DSN == "" {
-		return errors.New("postgres dsn is required")
+		return errors.New("postgres configuration is required")
 	}
 	if c.Admin.GuildID != "" && len(c.Admin.OwnerIDs) == 0 {
 		fmt.Fprintln(os.Stderr, "<4>WARNING: admin guild id is set but admin owner ids are empty; admin commands will be registered but unusable")
@@ -259,6 +281,30 @@ func splitList(value string) []string {
 		}
 	}
 	return out
+}
+
+func buildPostgresDSN(c DatabaseConfig) string {
+	parts := []string{
+		"host=" + quotePostgresValue(c.Host),
+		"dbname=" + quotePostgresValue(c.Name),
+		"user=" + quotePostgresValue(c.User),
+		"password=" + quotePostgresValue(c.Password),
+		"sslmode=" + quotePostgresValue(c.SSLMode),
+	}
+	return strings.Join(parts, " ")
+}
+
+func quotePostgresValue(value string) string {
+	var b strings.Builder
+	b.WriteByte('\'')
+	for _, r := range value {
+		if r == '\\' || r == '\'' {
+			b.WriteByte('\\')
+		}
+		b.WriteRune(r)
+	}
+	b.WriteByte('\'')
+	return b.String()
 }
 
 // GetConf returns the loaded configuration.

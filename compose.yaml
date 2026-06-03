@@ -6,7 +6,11 @@ services:
       - findsenryu-discord-token
       - findsenryu-discord-playing
       - findsenryu-discord-welcome-enabled
-      - findsenryu-database-dsn
+      - findsenryu-pghost
+      - findsenryu-pgdatabase
+      - findsenryu-pguser
+      - findsenryu-pgpassword
+      - findsenryu-pgsslmode
       - findsenryu-log-level
       - findsenryu-log-format
       - findsenryu-admin-owner-ids
@@ -28,7 +32,11 @@ services:
       - findsenryu-discord-token
       - findsenryu-discord-playing
       - findsenryu-discord-welcome-enabled
-      - findsenryu-database-dsn
+      - findsenryu-pghost
+      - findsenryu-pgdatabase
+      - findsenryu-pguser
+      - findsenryu-pgpassword
+      - findsenryu-pgsslmode
       - findsenryu-log-level
       - findsenryu-log-format
       - findsenryu-admin-owner-ids
@@ -49,7 +57,15 @@ secrets:
     external: true
   findsenryu-discord-welcome-enabled:
     external: true
-  findsenryu-database-dsn:
+  findsenryu-pghost:
+    external: true
+  findsenryu-pgdatabase:
+    external: true
+  findsenryu-pguser:
+    external: true
+  findsenryu-pgpassword:
+    external: true
+  findsenryu-pgsslmode:
     external: true
   findsenryu-log-level:
     external: true
