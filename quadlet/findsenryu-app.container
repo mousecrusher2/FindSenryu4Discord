@@ -8,12 +8,6 @@ ContainerName=findsenryu-app
 Image=findsenryu.image
 LogDriver=passthrough
 PublishPort=9090:9090
-HealthCmd=["/app/healthcheck"]
-HealthInterval=30s
-HealthTimeout=5s
-HealthRetries=3
-HealthStartPeriod=120s
-HealthOnFailure=stop
 StopTimeout=60
 Secret=findsenryu-discord-token
 Secret=findsenryu-discord-playing
@@ -30,8 +24,6 @@ Secret=findsenryu-admin-guild-id
 Secret=findsenryu-admin-log-channel-id
 Secret=findsenryu-admin-report-channel-id
 Secret=findsenryu-admin-contact-channel-id
-Secret=findsenryu-server-enabled
-Secret=findsenryu-server-port
 UserNS=auto
 
 [Service]

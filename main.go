@@ -18,7 +18,6 @@ import (
 	"github.com/mousecrusher2/FindSenryu4Discord/db"
 	"github.com/mousecrusher2/FindSenryu4Discord/model"
 	"github.com/mousecrusher2/FindSenryu4Discord/pkg/adminnotify"
-	"github.com/mousecrusher2/FindSenryu4Discord/pkg/health"
 	"github.com/mousecrusher2/FindSenryu4Discord/pkg/logger"
 	"github.com/mousecrusher2/FindSenryu4Discord/pkg/metrics"
 	"github.com/mousecrusher2/FindSenryu4Discord/pkg/permissions"
@@ -177,12 +176,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Start health check server
-	healthServer, err := health.StartServer()
-	if err != nil {
-		logger.Error("Failed to start health server", "error", err)
-	}
-
 	commands.SetStartTime(startTime)
 
 	// Get recommended shard count from Discord
@@ -293,11 +286,6 @@ func main() {
 	}
 	botReady.Store(true)
 
-	// Mark as ready
-	if healthServer != nil {
-		healthServer.SetReady(true)
-	}
-
 	logger.Info("Bot is now running. Press CTRL-C to exit.")
 
 	// Wait for termination signal
@@ -308,11 +296,6 @@ func main() {
 	// Graceful shutdown
 	logger.Info("Shutting down...")
 
-	// Mark as not ready
-	if healthServer != nil {
-		healthServer.SetReady(false)
-	}
-
 	// Create shutdown context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -321,13 +304,6 @@ func main() {
 	if adminNotifier != nil {
 		adminNotifier.NotifyStopping()
 		adminNotifier.Stop(ctx)
-	}
-
-	// Stop health server
-	if healthServer != nil {
-		if err := healthServer.Stop(ctx); err != nil {
-			logger.Error("Failed to stop health server", "error", err)
-		}
 	}
 
 	// Slash commands are intentionally NOT removed on shutdown.

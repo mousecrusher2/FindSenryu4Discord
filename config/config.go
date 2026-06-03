@@ -28,8 +28,6 @@ const (
 	secretAdminLogChannelID     = "findsenryu-admin-log-channel-id"
 	secretAdminReportChannelID  = "findsenryu-admin-report-channel-id"
 	secretAdminContactChannelID = "findsenryu-admin-contact-channel-id"
-	secretServerEnabled         = "findsenryu-server-enabled"
-	secretServerPort            = "findsenryu-server-port"
 )
 
 var (
@@ -43,7 +41,6 @@ type Config struct {
 	Database DatabaseConfig
 	Log      LogConfig
 	Admin    AdminConfig
-	Server   ServerConfig
 }
 
 // DiscordConfig holds Discord-related configuration.
@@ -78,12 +75,6 @@ type AdminConfig struct {
 	ContactChannelID string
 }
 
-// ServerConfig holds HTTP server configuration.
-type ServerConfig struct {
-	Port    int
-	Enabled *bool
-}
-
 // Load loads configuration from Podman secret files mounted under /run/secrets.
 func Load() (*Config, error) {
 	var loadErr error
@@ -111,8 +102,6 @@ func setDefaults(c *Config) {
 	c.Discord.WelcomeEnabled = boolPtr(true)
 	c.Log.Level = "info"
 	c.Log.Format = "text"
-	c.Server.Port = 9090
-	c.Server.Enabled = boolPtr(true)
 }
 
 func loadSecrets(c *Config, dir string) error {
@@ -166,13 +155,6 @@ func loadSecrets(c *Config, dir string) error {
 		return err
 	}
 	if c.Admin.ContactChannelID, err = readOptionalSecret(dir, secretAdminContactChannelID); err != nil {
-		return err
-	}
-
-	if c.Server.Enabled, err = readOptionalBoolSecret(dir, secretServerEnabled, c.Server.Enabled); err != nil {
-		return err
-	}
-	if c.Server.Port, err = readOptionalIntSecret(dir, secretServerPort, c.Server.Port); err != nil {
 		return err
 	}
 
@@ -326,12 +308,4 @@ func (c *DiscordConfig) IsWelcomeEnabled() bool {
 		return true
 	}
 	return *c.WelcomeEnabled
-}
-
-// IsEnabled returns whether the health server is enabled.
-func (c *ServerConfig) IsEnabled() bool {
-	if c.Enabled == nil {
-		return true
-	}
-	return *c.Enabled
 }
