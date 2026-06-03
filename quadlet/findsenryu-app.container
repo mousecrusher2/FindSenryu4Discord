@@ -14,6 +14,7 @@ HealthTimeout=5s
 HealthRetries=3
 HealthStartPeriod=120s
 HealthOnFailure=stop
+StopTimeout=60
 Secret=findsenryu-discord-token
 Secret=findsenryu-discord-playing
 Secret=findsenryu-discord-welcome-enabled
@@ -38,7 +39,7 @@ StandardOutput=journal
 StandardError=journal
 SyslogLevelPrefix=yes
 Restart=always
-TimeoutStopSec=30
+TimeoutStopSec=70
 
 [Install]
 WantedBy=findsenryu4discord.target
