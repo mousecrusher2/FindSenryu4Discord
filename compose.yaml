@@ -1,6 +1,6 @@
 services:
   migrate:
-    image: <ocir-image-uri>
+    image: kix.ocir.io/axkvg5nxhc7t/senryu:latest
     entrypoint: ["/app/migrate"]
     secrets:
       - findsenryu-discord-token
@@ -17,7 +17,7 @@ services:
       - findsenryu-server-enabled
       - findsenryu-server-port
   app:
-    image: <ocir-image-uri>
+    image: kix.ocir.io/axkvg5nxhc7t/senryu:latest
     restart: always
     depends_on:
       migrate:

@@ -4,19 +4,20 @@ GitHub Actions は Dockerfile からイメージをビルドして Oracle Cloud 
 
 ## OCIR イメージ URI
 
-イメージ URI は次の形式です。
+この repository では OCIR image URI を固定しています。
 
 ```text
-<registry-domain>/<tenancy-namespace>/<repo-name>:<tag>
+kix.ocir.io/axkvg5nxhc7t/senryu:latest
 ```
 
-例:
+構成要素:
 
-```text
-<ocir-registry>/<tenancy-namespace>/<repo-name>:latest
-```
-
-テナンシ namespace は OCI のテナンシ画面に表示される Object Storage namespace です。具体的な registry hostname や image URI はリポジトリ変数や管理対象ファイルには置かず、GitHub Secrets に入れてください。
+| 値 | 内容 |
+| --- | --- |
+| `kix.ocir.io` | Osaka region の OCIR registry hostname |
+| `axkvg5nxhc7t` | Tenancy Object Storage namespace |
+| `senryu` | OCIR repository name |
+| `latest` | push/pull する tag |
 
 ## OCI 側の準備
 
@@ -25,24 +26,24 @@ GitHub Actions は Dockerfile からイメージをビルドして Oracle Cloud 
 1. 使用する OCIR リージョンを決めます。
 2. OCI Console で `Container Registry` を開きます。
 3. 対象 compartment を選び、repository を作成します。
-4. repository 名を決めます。例: `findsenryu4discord`
+4. repository 名は `senryu` です。
 5. テナンシの Object Storage namespace を確認します。
 
-GitHub Secrets に入れる値はこの時点で次のように決まります。
+この repository で使う値:
 
 ```text
-OCIR_REGISTRY=<ocir-registry>
-OCIR_IMAGE=<ocir-registry>/<tenancy-namespace>/<repo-name>:latest
+OCIR_REGISTRY=kix.ocir.io
+OCIR_IMAGE=kix.ocir.io/axkvg5nxhc7t/senryu:latest
 ```
 
 各値の意味:
 
 | 値 | 確認場所または決め方 |
 | --- | --- |
-| `<ocir-registry>` | 使用する OCIR リージョンの registry hostname |
-| `<tenancy-namespace>` | Tenancy details の Object Storage namespace |
-| `<repo-name>` | Container Registry に作成した repository 名 |
-| `:latest` | この workflow で push する tag。別 tag にする場合は `OCIR_IMAGE` secret 側を変更します |
+| `kix.ocir.io` | 使用する OCIR registry hostname |
+| `axkvg5nxhc7t` | Tenancy details の Object Storage namespace |
+| `senryu` | Container Registry に作成する repository 名 |
+| `:latest` | この workflow で push する tag |
 
 ### 2. Push と deploy の権限を用意する
 
@@ -107,46 +108,39 @@ OCIR の login username は通常次の形式です。
 deploy host には `docker-credential-ocir` と OCI CLI を入れます。credential helper の config 値は `ocir` です。
 
 ```bash
-export OCIR_REGISTRY="<ocir-registry>"
-
 command -v docker-credential-ocir
 oci iam region list --auth instance_principal
 
 mkdir -p "$HOME/.docker"
-cat > "$HOME/.docker/config.json" <<EOF
+cat > "$HOME/.docker/config.json" <<'EOF'
 {
   "credHelpers": {
-    "$OCIR_REGISTRY": "ocir"
+    "kix.ocir.io": "ocir"
   }
 }
 EOF
 
-docker pull "<ocir-image-uri>"
+docker pull "kix.ocir.io/axkvg5nxhc7t/senryu:latest"
 ```
 
 `docker-credential-ocir` は OCI CLI を使って OCIR token を取得します。instance principal で認証する前提では、deploy host で `docker login` や静的な OCI Auth Token を使いません。
 
 ### 5. GitHub Secrets に設定する
 
-`Settings -> Secrets and variables -> Actions -> Secrets` に次を作成します。GitHub では文字列を組み立てません。registry、image URI、username、token をそれぞれ完成した値として secret に入れます。
+`Settings -> Secrets and variables -> Actions -> Secrets` に次を作成します。registry と image URI は workflow に固定しているため secret にしません。
 
 | Secret | 入れる値 |
 | --- | --- |
-| `OCIR_REGISTRY` | `docker/login-action` の registry に渡す値 |
-| `OCIR_IMAGE` | `docker/build-push-action` の `tags` に渡す完全な image URI |
 | `OCIR_USERNAME` | `docker/login-action` の username |
 | `OCIR_AUTH_TOKEN` | OCI Auth Token |
 
-`.github/workflows/publish-ocir.yml` は `master` への push、`v` で始まる tag、手動実行で動作します。push する tag は `OCIR_IMAGE` secret に含めた tag です。
+`.github/workflows/publish-ocir.yml` は `master` への push、`v` で始まる tag、手動実行で動作します。push する tag は `kix.ocir.io/axkvg5nxhc7t/senryu:latest` です。
 
 ## Compose デプロイ
 
 外部 PostgreSQL の DSN と Discord Bot token は secret として渡します。PostgreSQL container はこの Compose では用意しません。
 
 ```bash
-image="<ocir-image-uri>"
-sed -i "s#<ocir-image-uri>#$image#g" compose.yaml
-
 printf '%s' '<discord-bot-token>' | podman secret create --replace findsenryu-discord-token -
 printf '\n' | podman secret create --replace findsenryu-discord-playing -
 printf '%s' 'true' | podman secret create --replace findsenryu-discord-welcome-enabled -
@@ -167,7 +161,7 @@ mkdir -p "$HOME/.docker"
 cat > "$HOME/.docker/config.json" <<'EOF'
 {
   "credHelpers": {
-    "<ocir-registry>": "ocir"
+    "kix.ocir.io": "ocir"
   }
 }
 EOF
@@ -178,7 +172,7 @@ docker compose up -d
 
 `compose.yaml` は external secret を宣言します。実行する Compose 実装が external secret を扱えない場合は、Quadlet 手順を使ってください。アプリケーションデータは外部 PostgreSQL に保存されます。Compose は named volume と `config.toml` bind mount を使いません。
 
-`docker compose pull` と `docker compose up` は OCIR から image を pull するため、デプロイ先の Docker config には `<ocir-registry>` の `credHelpers` として `ocir` を設定してください。helper binary は `docker-credential-ocir` という名前で `PATH` から実行できる必要があります。
+`docker compose pull` と `docker compose up` は OCIR から image を pull するため、デプロイ先の Docker config には `kix.ocir.io` の `credHelpers` として `ocir` を設定してください。helper binary は `docker-credential-ocir` という名前で `PATH` から実行できる必要があります。
 
 ## 参考
 
