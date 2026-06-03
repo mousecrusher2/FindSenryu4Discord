@@ -6,7 +6,6 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mousecrusher2/FindSenryu4Discord/pkg/logger"
-	"github.com/mousecrusher2/FindSenryu4Discord/pkg/metrics"
 	"github.com/mousecrusher2/FindSenryu4Discord/service"
 )
 
@@ -28,7 +27,6 @@ var requiredPermissions = []requiredPermission{
 
 // HandleDoctorCommand handles the /doctor slash command
 func HandleDoctorCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	metrics.RecordCommandExecuted("doctor")
 
 	if i.GuildID == "" {
 		respondError(s, i, "このコマンドはサーバー内でのみ使用できます")

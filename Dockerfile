@@ -17,6 +17,4 @@ WORKDIR /app
 COPY --from=builder /build/bot /app/bot
 COPY --from=builder /build/migrate /app/migrate
 
-EXPOSE 9090
-
 ENTRYPOINT ["/app/bot"]

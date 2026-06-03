@@ -9,7 +9,6 @@ import (
 	"github.com/mousecrusher2/FindSenryu4Discord/db"
 	"github.com/mousecrusher2/FindSenryu4Discord/model"
 	"github.com/mousecrusher2/FindSenryu4Discord/pkg/logger"
-	"github.com/mousecrusher2/FindSenryu4Discord/pkg/metrics"
 )
 
 var (
@@ -19,10 +18,8 @@ var (
 
 // CreateSenryu creates a new senryu record
 func CreateSenryu(s model.Senryu) (model.Senryu, error) {
-	metrics.RecordDatabaseOperation("create_senryu")
 
 	if err := db.DB.Create(&s).Error; err != nil {
-		metrics.RecordError("database")
 		logger.Error("Failed to create senryu",
 			"error", err,
 			"server_id", s.ServerID,
@@ -31,7 +28,6 @@ func CreateSenryu(s model.Senryu) (model.Senryu, error) {
 		return s, errors.Wrap(err, "failed to create senryu")
 	}
 
-	metrics.RecordSenryuDetected(s.ServerID)
 	logger.Debug("Senryu created",
 		"id", s.ID,
 		"server_id", s.ServerID,
@@ -42,14 +38,12 @@ func CreateSenryu(s model.Senryu) (model.Senryu, error) {
 
 // GetLastSenryu returns the last senryu in a server
 func GetLastSenryu(serverID string) (*model.Senryu, error) {
-	metrics.RecordDatabaseOperation("get_last_senryu")
 
 	s := model.Senryu{}
 	if err := db.DB.Where(&model.Senryu{ServerID: serverID}).Last(&s).Error; err != nil {
 		if gorm.IsRecordNotFoundError(err) {
 			return nil, ErrSenryuNotFound
 		}
-		metrics.RecordError("database")
 		logger.Warn("Failed to get last senryu",
 			"error", err,
 			"server_id", serverID,
@@ -62,11 +56,9 @@ func GetLastSenryu(serverID string) (*model.Senryu, error) {
 
 // GetThreeRandomSenryus returns three random senryus for generating a new one
 func GetThreeRandomSenryus(serverID string) ([]model.Senryu, error) {
-	metrics.RecordDatabaseOperation("get_random_senryus")
 
 	var count int64
 	if err := db.DB.Model(&model.Senryu{}).Where("server_id = ? AND spoiler = ?", serverID, false).Count(&count).Error; err != nil {
-		metrics.RecordError("database")
 		logger.Warn("Failed to count senryus",
 			"error", err,
 			"server_id", serverID,
@@ -83,7 +75,6 @@ func GetThreeRandomSenryus(serverID string) ([]model.Senryu, error) {
 		var s model.Senryu
 		offset := rand.Intn(int(count))
 		if err := db.DB.Where("server_id = ? AND spoiler = ?", serverID, false).Offset(offset).Limit(1).First(&s).Error; err != nil {
-			metrics.RecordError("database")
 			logger.Warn("Failed to get random senryu",
 				"error", err,
 				"server_id", serverID,
@@ -105,7 +96,6 @@ type RankResult struct {
 
 // GetRanking returns the senryu ranking for a server
 func GetRanking(serverID string) ([]RankResult, error) {
-	metrics.RecordDatabaseOperation("get_ranking")
 
 	var ranks []RankResult
 	if err := db.DB.Model(&model.Senryu{}).
@@ -114,7 +104,6 @@ func GetRanking(serverID string) ([]RankResult, error) {
 		Select("COUNT(TRUE) AS count, author_id").
 		Order("count DESC").
 		Scan(&ranks).Error; err != nil {
-		metrics.RecordError("database")
 		logger.Warn("Failed to get ranking",
 			"error", err,
 			"server_id", serverID,
@@ -142,12 +131,10 @@ func GetRanking(serverID string) ([]RankResult, error) {
 
 // GetRecentSenryusByAuthor returns recent senryus by a specific author in a server
 func GetRecentSenryusByAuthor(serverID, authorID string, limit int) ([]model.Senryu, error) {
-	metrics.RecordDatabaseOperation("get_recent_senryus_by_author")
 
 	var senryus []model.Senryu
 	if err := db.DB.Where("server_id = ? AND author_id = ?", serverID, authorID).
 		Order("id DESC").Limit(limit).Find(&senryus).Error; err != nil {
-		metrics.RecordError("database")
 		logger.Warn("Failed to get recent senryus by author",
 			"error", err,
 			"server_id", serverID,
@@ -161,12 +148,10 @@ func GetRecentSenryusByAuthor(serverID, authorID string, limit int) ([]model.Sen
 
 // GetSenryusByAuthorPaged returns a page of senryus by author, ordered by ID desc.
 func GetSenryusByAuthorPaged(serverID, authorID string, limit, offset int) ([]model.Senryu, error) {
-	metrics.RecordDatabaseOperation("get_senryus_by_author_paged")
 
 	var senryus []model.Senryu
 	if err := db.DB.Where("server_id = ? AND author_id = ?", serverID, authorID).
 		Order("id DESC").Limit(limit).Offset(offset).Find(&senryus).Error; err != nil {
-		metrics.RecordError("database")
 		logger.Warn("Failed to get senryus by author paged",
 			"error", err,
 			"server_id", serverID,
@@ -180,13 +165,11 @@ func GetSenryusByAuthorPaged(serverID, authorID string, limit, offset int) ([]mo
 
 // CountSenryusByAuthor returns the total number of senryus by author in a server.
 func CountSenryusByAuthor(serverID, authorID string) (int, error) {
-	metrics.RecordDatabaseOperation("count_senryus_by_author")
 
 	var count int
 	if err := db.DB.Model(&model.Senryu{}).
 		Where("server_id = ? AND author_id = ?", serverID, authorID).
 		Count(&count).Error; err != nil {
-		metrics.RecordError("database")
 		logger.Warn("Failed to count senryus by author",
 			"error", err,
 			"server_id", serverID,
@@ -200,14 +183,12 @@ func CountSenryusByAuthor(serverID, authorID string) (int, error) {
 
 // GetSenryuByID returns a senryu by ID within a server
 func GetSenryuByID(id int, serverID string) (*model.Senryu, error) {
-	metrics.RecordDatabaseOperation("get_senryu_by_id")
 
 	var s model.Senryu
 	if err := db.DB.Where("id = ? AND server_id = ?", id, serverID).First(&s).Error; err != nil {
 		if gorm.IsRecordNotFoundError(err) {
 			return nil, ErrSenryuNotFound
 		}
-		metrics.RecordError("database")
 		logger.Warn("Failed to get senryu by ID",
 			"error", err,
 			"id", id,
@@ -221,11 +202,9 @@ func GetSenryuByID(id int, serverID string) (*model.Senryu, error) {
 
 // DeleteSenryu deletes a senryu by ID within a server
 func DeleteSenryu(id int, serverID string) error {
-	metrics.RecordDatabaseOperation("delete_senryu")
 
 	result := db.DB.Where("id = ? AND server_id = ?", id, serverID).Delete(&model.Senryu{})
 	if result.Error != nil {
-		metrics.RecordError("database")
 		logger.Error("Failed to delete senryu",
 			"error", result.Error,
 			"id", id,
@@ -247,11 +226,9 @@ func DeleteSenryu(id int, serverID string) error {
 
 // DeleteSenryuByServer deletes all senryus belonging to a server
 func DeleteSenryuByServer(serverID string) (int64, error) {
-	metrics.RecordDatabaseOperation("delete_senryu_by_server")
 
 	result := db.DB.Where("server_id = ?", serverID).Delete(&model.Senryu{})
 	if result.Error != nil {
-		metrics.RecordError("database")
 		logger.Error("Failed to delete senryus by server",
 			"error", result.Error,
 			"server_id", serverID,
@@ -268,14 +245,12 @@ func DeleteSenryuByServer(serverID string) (int64, error) {
 
 // CountUniqueAuthorsByDateRange returns the number of unique authors who created senryus within [from, to)
 func CountUniqueAuthorsByDateRange(from, to time.Time) (int64, error) {
-	metrics.RecordDatabaseOperation("count_unique_authors_by_date_range")
 
 	var count int64
 	if err := db.DB.Model(&model.Senryu{}).
 		Where("created_at >= ? AND created_at < ?", from, to).
 		Select("COUNT(DISTINCT author_id)").
 		Count(&count).Error; err != nil {
-		metrics.RecordError("database")
 		logger.Warn("Failed to count unique authors by date range",
 			"error", err,
 			"from", from,
@@ -289,13 +264,11 @@ func CountUniqueAuthorsByDateRange(from, to time.Time) (int64, error) {
 
 // CountSenryuByDateRange returns the count of senryus created within the given time range [from, to)
 func CountSenryuByDateRange(from, to time.Time) (int64, error) {
-	metrics.RecordDatabaseOperation("count_senryu_by_date_range")
 
 	var count int64
 	if err := db.DB.Model(&model.Senryu{}).
 		Where("created_at >= ? AND created_at < ?", from, to).
 		Count(&count).Error; err != nil {
-		metrics.RecordError("database")
 		logger.Warn("Failed to count senryus by date range",
 			"error", err,
 			"from", from,
@@ -315,7 +288,6 @@ type ServerStats struct {
 
 // GetServerStats returns statistics for a server
 func GetServerStats(serverID string) (ServerStats, error) {
-	metrics.RecordDatabaseOperation("get_server_stats")
 
 	var stats ServerStats
 

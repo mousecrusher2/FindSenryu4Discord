@@ -9,7 +9,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/mousecrusher2/FindSenryu4Discord/config"
 	"github.com/mousecrusher2/FindSenryu4Discord/pkg/logger"
-	"github.com/mousecrusher2/FindSenryu4Discord/pkg/metrics"
 )
 
 var welcomeSentGuilds sync.Map
@@ -127,6 +126,5 @@ func SendWelcomeMessage(s *discordgo.Session, g *discordgo.GuildCreate) {
 		return
 	}
 
-	metrics.RecordWelcomeMessageSent()
 	logger.Info("Sent welcome message", "guild_id", g.ID, "guild_name", g.Name, "channel_id", channelID)
 }

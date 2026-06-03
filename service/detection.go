@@ -7,7 +7,6 @@ import (
 	"github.com/mousecrusher2/FindSenryu4Discord/db"
 	"github.com/mousecrusher2/FindSenryu4Discord/model"
 	"github.com/mousecrusher2/FindSenryu4Discord/pkg/logger"
-	"github.com/mousecrusher2/FindSenryu4Discord/pkg/metrics"
 )
 
 // SetBy constants for DetectionOptOut.SetBy column.
@@ -51,11 +50,9 @@ func IsDetectionOptedOut(serverID, userID string) bool {
 
 // OptOutDetection opts a user out of detection in a server
 func OptOutDetection(serverID, userID, setBy string) error {
-	metrics.RecordDatabaseOperation("opt_out_detection")
 
 	optOut := model.DetectionOptOut{ServerID: serverID, UserID: userID, SetBy: setBy}
 	if err := db.DB.FirstOrCreate(&optOut, &model.DetectionOptOut{ServerID: serverID, UserID: userID}).Error; err != nil {
-		metrics.RecordError("database")
 		logger.Error("Failed to opt out detection",
 			"error", err,
 			"server_id", serverID,
@@ -73,11 +70,9 @@ func OptOutDetection(serverID, userID, setBy string) error {
 
 // DeleteOptOutByServer deletes all detection opt-outs belonging to a server
 func DeleteOptOutByServer(serverID string) (int64, error) {
-	metrics.RecordDatabaseOperation("delete_opt_out_by_server")
 
 	result := db.DB.Where("server_id = ?", serverID).Delete(&model.DetectionOptOut{})
 	if result.Error != nil {
-		metrics.RecordError("database")
 		logger.Error("Failed to delete opt-outs by server",
 			"error", result.Error,
 			"server_id", serverID,
@@ -108,7 +103,6 @@ func DeleteOptOutByServer(serverID string) (int64, error) {
 // If force is false (user self-service), admin-banned records are not removed.
 // If force is true (admin unban), any record is removed.
 func OptInDetection(serverID, userID string, force bool) error {
-	metrics.RecordDatabaseOperation("opt_in_detection")
 
 	if !force {
 		if IsAdminBanned(serverID, userID) {
@@ -117,7 +111,6 @@ func OptInDetection(serverID, userID string, force bool) error {
 	}
 
 	if err := db.DB.Where(&model.DetectionOptOut{ServerID: serverID, UserID: userID}).Delete(&model.DetectionOptOut{}).Error; err != nil {
-		metrics.RecordError("database")
 		logger.Error("Failed to opt in detection",
 			"error", err,
 			"server_id", serverID,
@@ -137,13 +130,11 @@ func OptInDetection(serverID, userID string, force bool) error {
 // If a self opt-out already exists, it is upgraded to admin.
 // Uses Assign+FirstOrCreate for atomic upsert to avoid TOCTOU races.
 func AdminBanDetection(serverID, userID string) error {
-	metrics.RecordDatabaseOperation("admin_ban_detection")
 
 	optOut := model.DetectionOptOut{ServerID: serverID, UserID: userID}
 	if err := db.DB.Where(model.DetectionOptOut{ServerID: serverID, UserID: userID}).
 		Assign(model.DetectionOptOut{SetBy: SetByAdmin}).
 		FirstOrCreate(&optOut).Error; err != nil {
-		metrics.RecordError("database")
 		logger.Error("Failed to admin ban user",
 			"error", err,
 			"server_id", serverID,
@@ -178,11 +169,9 @@ func IsAdminBanned(serverID, userID string) bool {
 
 // ListOptOutsByServer returns all opt-out records for a server
 func ListOptOutsByServer(serverID string) ([]model.DetectionOptOut, error) {
-	metrics.RecordDatabaseOperation("list_opt_outs_by_server")
 
 	var optOuts []model.DetectionOptOut
 	if err := db.DB.Where("server_id = ?", serverID).Find(&optOuts).Error; err != nil {
-		metrics.RecordError("database")
 		logger.Error("Failed to list opt-outs",
 			"error", err,
 			"server_id", serverID,

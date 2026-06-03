@@ -7,7 +7,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/mousecrusher2/FindSenryu4Discord/db"
 	"github.com/mousecrusher2/FindSenryu4Discord/pkg/logger"
-	"github.com/mousecrusher2/FindSenryu4Discord/pkg/metrics"
 	"github.com/mousecrusher2/FindSenryu4Discord/pkg/permissions"
 	"github.com/mousecrusher2/FindSenryu4Discord/service"
 )
@@ -96,8 +95,6 @@ func HandleAdminCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		respondError(s, i, "このコマンドはBot管理者のみ使用できます")
 		return
 	}
-
-	metrics.RecordCommandExecuted("admin")
 
 	options := i.ApplicationCommandData().Options
 	if len(options) == 0 {

@@ -7,7 +7,6 @@ After=findsenryu-migrate.service findsenryu-image.service
 ContainerName=findsenryu-app
 Image=findsenryu.image
 LogDriver=passthrough
-PublishPort=9090:9090
 StopTimeout=60
 Secret=findsenryu-discord-token
 Secret=findsenryu-discord-playing

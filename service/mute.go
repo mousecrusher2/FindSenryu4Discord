@@ -7,7 +7,6 @@ import (
 	"github.com/mousecrusher2/FindSenryu4Discord/db"
 	"github.com/mousecrusher2/FindSenryu4Discord/model"
 	"github.com/mousecrusher2/FindSenryu4Discord/pkg/logger"
-	"github.com/mousecrusher2/FindSenryu4Discord/pkg/metrics"
 )
 
 var (
@@ -35,13 +34,11 @@ func IsMute(id string) bool {
 
 // ToMute mutes a channel
 func ToMute(channelID, guildID string) error {
-	metrics.RecordDatabaseOperation("mute_channel")
 
 	muted := model.MutedChannel{ChannelID: channelID, GuildID: guildID}
 	if err := db.DB.Where("channel_id = ?", channelID).
 		Assign(model.MutedChannel{GuildID: guildID}).
 		FirstOrCreate(&muted).Error; err != nil {
-		metrics.RecordError("database")
 		logger.Error("Failed to mute channel",
 			"error", err,
 			"channel_id", channelID,
@@ -57,10 +54,8 @@ func ToMute(channelID, guildID string) error {
 
 // ToUnMute unmutes a channel
 func ToUnMute(id string) error {
-	metrics.RecordDatabaseOperation("unmute_channel")
 
 	if err := db.DB.Where(&model.MutedChannel{ChannelID: id}).Delete(&model.MutedChannel{}).Error; err != nil {
-		metrics.RecordError("database")
 		logger.Error("Failed to unmute channel",
 			"error", err,
 			"channel_id", id,

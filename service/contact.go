@@ -8,7 +8,6 @@ import (
 	"github.com/mousecrusher2/FindSenryu4Discord/db"
 	"github.com/mousecrusher2/FindSenryu4Discord/model"
 	"github.com/mousecrusher2/FindSenryu4Discord/pkg/logger"
-	"github.com/mousecrusher2/FindSenryu4Discord/pkg/metrics"
 )
 
 const metadataKeyContactAdditionalMessage = "contact_additional_message"
@@ -25,8 +24,6 @@ func GetContactAdditionalMessage() (string, error) {
 		return *cached.(*string), nil
 	}
 
-	metrics.RecordDatabaseOperation("get_contact_additional_message")
-
 	var meta model.Metadata
 	err := db.DB.Where("key = ?", metadataKeyContactAdditionalMessage).First(&meta).Error
 	if err != nil {
@@ -35,7 +32,6 @@ func GetContactAdditionalMessage() (string, error) {
 			contactAdditionalMessageCache.Store(&empty)
 			return "", nil
 		}
-		metrics.RecordError("database")
 		logger.Error("Failed to get contact additional message", "error", err)
 		return "", errors.Wrap(err, "failed to get contact additional message")
 	}
@@ -46,13 +42,11 @@ func GetContactAdditionalMessage() (string, error) {
 
 // SetContactAdditionalMessage sets the additional message for the /contact command.
 func SetContactAdditionalMessage(message string) error {
-	metrics.RecordDatabaseOperation("set_contact_additional_message")
 
 	meta := model.Metadata{Key: metadataKeyContactAdditionalMessage, Value: message}
 	if err := db.DB.Where("key = ?", metadataKeyContactAdditionalMessage).
 		Assign(model.Metadata{Value: message}).
 		FirstOrCreate(&meta).Error; err != nil {
-		metrics.RecordError("database")
 		logger.Error("Failed to set contact additional message", "error", err)
 		return errors.Wrap(err, "failed to set contact additional message")
 	}
@@ -65,11 +59,9 @@ func SetContactAdditionalMessage(message string) error {
 
 // ClearContactAdditionalMessage removes the additional message for the /contact command.
 func ClearContactAdditionalMessage() error {
-	metrics.RecordDatabaseOperation("clear_contact_additional_message")
 
 	if err := db.DB.Where("key = ?", metadataKeyContactAdditionalMessage).
 		Delete(&model.Metadata{}).Error; err != nil {
-		metrics.RecordError("database")
 		logger.Error("Failed to clear contact additional message", "error", err)
 		return errors.Wrap(err, "failed to clear contact additional message")
 	}

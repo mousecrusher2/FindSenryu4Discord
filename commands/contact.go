@@ -9,7 +9,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/mousecrusher2/FindSenryu4Discord/config"
 	"github.com/mousecrusher2/FindSenryu4Discord/pkg/logger"
-	"github.com/mousecrusher2/FindSenryu4Discord/pkg/metrics"
 	"github.com/mousecrusher2/FindSenryu4Discord/service"
 )
 
@@ -30,7 +29,6 @@ var contactCooldowns sync.Map // userID -> time.Time
 // HandleContactCommand handles the /contact slash command.
 // Shows an ephemeral guide message with a category SelectMenu.
 func HandleContactCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	metrics.RecordCommandExecuted("contact")
 
 	// DM防止
 	if i.GuildID == "" {

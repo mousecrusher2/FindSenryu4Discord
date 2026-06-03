@@ -8,7 +8,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/cockroachdb/errors"
 	"github.com/mousecrusher2/FindSenryu4Discord/pkg/logger"
-	"github.com/mousecrusher2/FindSenryu4Discord/pkg/metrics"
 	"github.com/mousecrusher2/FindSenryu4Discord/service"
 )
 
@@ -23,7 +22,6 @@ const (
 
 // HandleDeleteCommand handles the /delete slash command
 func HandleDeleteCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	metrics.RecordCommandExecuted("delete")
 
 	if i.GuildID == "" {
 		respondError(s, i, "このコマンドはサーバー内でのみ使用できます")

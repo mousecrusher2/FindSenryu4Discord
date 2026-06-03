@@ -7,7 +7,6 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/mousecrusher2/FindSenryu4Discord/pkg/logger"
-	"github.com/mousecrusher2/FindSenryu4Discord/pkg/metrics"
 	"github.com/mousecrusher2/FindSenryu4Discord/service"
 )
 
@@ -45,7 +44,6 @@ func init() {
 
 // HandleChannelCommand handles the /channel slash command.
 func HandleChannelCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	metrics.RecordCommandExecuted("channel")
 
 	if i.GuildID == "" {
 		respondError(s, i, "このコマンドはサーバー内でのみ使用できます")

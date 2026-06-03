@@ -8,7 +8,6 @@ import (
 	"github.com/mousecrusher2/FindSenryu4Discord/db"
 	"github.com/mousecrusher2/FindSenryu4Discord/model"
 	"github.com/mousecrusher2/FindSenryu4Discord/pkg/logger"
-	"github.com/mousecrusher2/FindSenryu4Discord/pkg/metrics"
 )
 
 // defaultEnabledChannelTypes defines the default enabled state for each channel type.
@@ -90,7 +89,6 @@ func invalidateGuildCache(guildID string) {
 // SetChannelTypeEnabled sets the enabled state for a channel type in a guild.
 // If the value matches the default, the row is deleted to keep the table minimal.
 func SetChannelTypeEnabled(guildID string, channelType discordgo.ChannelType, enabled bool) error {
-	metrics.RecordDatabaseOperation("set_channel_type_enabled")
 
 	defaultVal := defaultEnabledChannelTypes[channelType]
 
@@ -98,7 +96,6 @@ func SetChannelTypeEnabled(guildID string, channelType discordgo.ChannelType, en
 		// Remove override — revert to default
 		if err := db.DB.Where("guild_id = ? AND channel_type = ?", guildID, int(channelType)).
 			Delete(&model.GuildChannelTypeSetting{}).Error; err != nil {
-			metrics.RecordError("database")
 			logger.Error("Failed to delete channel type setting",
 				"error", err,
 				"guild_id", guildID,
@@ -119,7 +116,6 @@ func SetChannelTypeEnabled(guildID string, channelType discordgo.ChannelType, en
 	if err := db.DB.Where("guild_id = ? AND channel_type = ?", guildID, int(channelType)).
 		Assign(model.GuildChannelTypeSetting{Enabled: enabled}).
 		FirstOrCreate(&setting).Error; err != nil {
-		metrics.RecordError("database")
 		logger.Error("Failed to upsert channel type setting",
 			"error", err,
 			"guild_id", guildID,
@@ -151,7 +147,6 @@ func ToggleChannelTypeEnabled(guildID string, channelType discordgo.ChannelType)
 
 // GetGuildChannelSettings returns the effective settings for all configurable channel types in a guild.
 func GetGuildChannelSettings(guildID string) (map[int]bool, error) {
-	metrics.RecordDatabaseOperation("get_guild_channel_settings")
 
 	// Start with defaults
 	result := make(map[int]bool, len(defaultEnabledChannelTypes))
@@ -170,11 +165,9 @@ func GetGuildChannelSettings(guildID string) (map[int]bool, error) {
 
 // DeleteChannelConfigByGuild deletes all channel type settings for a guild.
 func DeleteChannelConfigByGuild(guildID string) (int64, error) {
-	metrics.RecordDatabaseOperation("delete_channel_config_by_guild")
 
 	result := db.DB.Where("guild_id = ?", guildID).Delete(&model.GuildChannelTypeSetting{})
 	if result.Error != nil {
-		metrics.RecordError("database")
 		logger.Error("Failed to delete channel config by guild",
 			"error", result.Error,
 			"guild_id", guildID,

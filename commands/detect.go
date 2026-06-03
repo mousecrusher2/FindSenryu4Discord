@@ -7,13 +7,11 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/cockroachdb/errors"
 	"github.com/mousecrusher2/FindSenryu4Discord/pkg/logger"
-	"github.com/mousecrusher2/FindSenryu4Discord/pkg/metrics"
 	"github.com/mousecrusher2/FindSenryu4Discord/service"
 )
 
 // HandleDetectCommand handles the /detect slash command
 func HandleDetectCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	metrics.RecordCommandExecuted("detect")
 
 	if i.GuildID == "" {
 		respondError(s, i, "このコマンドはサーバー内でのみ使用できます")

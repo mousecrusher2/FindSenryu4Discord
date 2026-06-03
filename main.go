@@ -19,7 +19,6 @@ import (
 	"github.com/mousecrusher2/FindSenryu4Discord/model"
 	"github.com/mousecrusher2/FindSenryu4Discord/pkg/adminnotify"
 	"github.com/mousecrusher2/FindSenryu4Discord/pkg/logger"
-	"github.com/mousecrusher2/FindSenryu4Discord/pkg/metrics"
 	"github.com/mousecrusher2/FindSenryu4Discord/pkg/permissions"
 	"github.com/mousecrusher2/FindSenryu4Discord/service"
 
@@ -273,10 +272,6 @@ func main() {
 	// Update game status
 	dg.UpdateGameStatus(1, conf.Discord.Playing)
 
-	// Update database stats in metrics
-	dbStats := db.GetStats()
-	metrics.SetDatabaseStats(dbStats.SenryuCount, dbStats.MutedChannelCount, dbStats.OptOutCount)
-
 	// Initialize admin notification manager
 	if conf.Admin.LogChannelID != "" || conf.Admin.ReportChannelID != "" {
 		adminNotifier = adminnotify.NewManager(dg, conf.Admin.LogChannelID, conf.Admin.ReportChannelID)
@@ -346,7 +341,6 @@ func countAllGuilds() int {
 }
 
 func guildCreate(s *discordgo.Session, g *discordgo.GuildCreate) {
-	metrics.SetConnectedGuilds(countAllGuilds())
 	if !botReady.Load() {
 		logger.Debug("Guild cache", "name", g.Name, "id", g.ID)
 		// Register existing guilds so reconnect doesn't trigger welcome messages
@@ -368,7 +362,6 @@ func guildCreate(s *discordgo.Session, g *discordgo.GuildCreate) {
 			}
 			total := countAllGuilds()
 			logger.Info("Guild cache complete, bot is ready", "guilds", total, "shards", expectedShards.Load())
-			metrics.SetConnectedGuilds(total)
 			botReady.Store(true)
 		})
 		guildCacheTimer.Store(t)
@@ -383,7 +376,6 @@ func guildCreate(s *discordgo.Session, g *discordgo.GuildCreate) {
 
 func guildDelete(s *discordgo.Session, g *discordgo.GuildDelete) {
 	logger.Info("Left guild", "id", g.ID)
-	metrics.SetConnectedGuilds(countAllGuilds())
 
 	// Clear welcome-sent flag so re-invitation triggers a new welcome message
 	commands.ClearGuildWelcomeSent(g.ID)
@@ -463,14 +455,11 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	metrics.RecordMessageProcessed()
-
 	ch, err := s.State.Channel(m.ChannelID)
 	if err != nil {
 		ch, err = s.Channel(m.ChannelID)
 		if err != nil {
 			logger.Warn("Failed to get channel", "error", err, "channel_id", m.ChannelID)
-			metrics.RecordError("discord_api")
 			return
 		}
 	}
@@ -528,7 +517,6 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 				)
 				if err != nil {
 					logger.Error("Failed to create senryu", "error", err)
-					metrics.RecordError("database")
 					return
 				}
 				replyText := fmt.Sprintf("川柳を検出しました！\n「%s」", h[0])
@@ -552,7 +540,6 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 						if muteErr := service.ToMute(m.ChannelID, m.GuildID); muteErr != nil {
 							logger.Error("Failed to auto-mute channel after permission error", "error", muteErr, "channel_id", m.ChannelID)
 						} else {
-							metrics.RecordAutoMute()
 							logger.Warn("Auto-muted channel due to missing Bot permissions", "channel_id", m.ChannelID, "server_id", m.GuildID)
 						}
 					}
@@ -565,7 +552,6 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 var medals = []string{"🥇", "🥈", "🥉", "🎖️", "🎖️"}
 
 func handleRankCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	metrics.RecordCommandExecuted("rank")
 
 	ranks, err := service.GetRanking(i.GuildID)
 	if err != nil {
