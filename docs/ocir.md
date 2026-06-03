@@ -137,7 +137,6 @@ printf '\n' | podman secret create --replace findsenryu-admin-report-channel-id 
 printf '\n' | podman secret create --replace findsenryu-admin-contact-channel-id -
 printf '%s' 'true' | podman secret create --replace findsenryu-server-enabled -
 printf '%s' '9090' | podman secret create --replace findsenryu-server-port -
-printf '\n' | podman secret create --replace findsenryu-encryption-key -
 
 docker login "<ocir-registry>" -u "<tenancy-namespace>/<oci-username>"
 docker compose pull

@@ -26,7 +26,6 @@ const (
 	secretAdminContactChannelID = "findsenryu-admin-contact-channel-id"
 	secretServerEnabled         = "findsenryu-server-enabled"
 	secretServerPort            = "findsenryu-server-port"
-	secretEncryptionKey         = "findsenryu-encryption-key"
 )
 
 var (
@@ -36,12 +35,11 @@ var (
 
 // Config holds all configuration.
 type Config struct {
-	Discord    DiscordConfig
-	Database   DatabaseConfig
-	Log        LogConfig
-	Admin      AdminConfig
-	Server     ServerConfig
-	Encryption EncryptionConfig
+	Discord  DiscordConfig
+	Database DatabaseConfig
+	Log      LogConfig
+	Admin    AdminConfig
+	Server   ServerConfig
 }
 
 // DiscordConfig holds Discord-related configuration.
@@ -75,11 +73,6 @@ type AdminConfig struct {
 type ServerConfig struct {
 	Port    int
 	Enabled *bool
-}
-
-// EncryptionConfig holds encryption configuration for senryu data.
-type EncryptionConfig struct {
-	Key string
 }
 
 // Load loads configuration from Podman secret files mounted under /run/secrets.
@@ -161,8 +154,7 @@ func loadSecrets(c *Config, dir string) error {
 		return err
 	}
 
-	c.Encryption.Key, err = readOptionalSecret(dir, secretEncryptionKey)
-	return err
+	return nil
 }
 
 func readSecret(dir, name string) (string, error) {

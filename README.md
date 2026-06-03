@@ -131,26 +131,7 @@ findsenryu-admin-report-channel-id
 findsenryu-admin-contact-channel-id
 findsenryu-server-enabled
 findsenryu-server-port
-findsenryu-encryption-key
 ```
-
-#### 川柳データの暗号化
-
-川柳の内容（上の句・中の句・下の句）をAES-256-GCMで暗号化してデータベースに保存できます。
-
-1. 暗号化キーを生成:
-   ```bash
-   openssl rand -hex 32
-   ```
-
-2. Podman secret で設定:
-   ```bash
-   printf '%s' '生成した64文字のhex文字列' | sudo podman secret create --replace findsenryu-encryption-key -
-   ```
-
-3. Bot を起動すると、既存の平文データが自動的に暗号化されます（初回のみ）
-
-暗号化を有効にした後にキーを削除すると、データが読めなくなるため起動が拒否されます。キーは安全に管理してください。
 
 ### 機能
 
@@ -160,7 +141,6 @@ findsenryu-encryption-key
 - **お問い合わせ** — `/contact` でBot管理者にフィードバックや問い合わせを送信
 - **ユーザーオプトアウト** — ユーザー単位・サーバー単位で検出を無効化
 - **自動ミュート** — Bot権限不足（Missing Access / Missing Permissions / メッセージ履歴読み取り不可）で返信に失敗した場合、該当チャンネルを自動的にミュートします（`/unmute` で解除可能）
-- **データ暗号化** — 川柳の内容をAES-256-GCMで暗号化してデータベースに保存（設定で有効化）
 - **管理者通知** — サーバー参加/脱退通知と日次サマリーを管理チャンネルに送信（脱退時は川柳・オプトアウト設定を自動削除）
 - **ヘルスチェック** — `/health`, `/ready`, `/stats` エンドポイント
 - **Prometheus メトリクス** — `/metrics` エンドポイントで各種メトリクスを公開

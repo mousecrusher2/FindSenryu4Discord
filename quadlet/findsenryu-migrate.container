@@ -22,7 +22,6 @@ Secret=findsenryu-admin-report-channel-id
 Secret=findsenryu-admin-contact-channel-id
 Secret=findsenryu-server-enabled
 Secret=findsenryu-server-port
-Secret=findsenryu-encryption-key
 UserNS=auto
 
 [Service]

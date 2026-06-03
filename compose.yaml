@@ -16,7 +16,6 @@ services:
       - findsenryu-admin-contact-channel-id
       - findsenryu-server-enabled
       - findsenryu-server-port
-      - findsenryu-encryption-key
   app:
     image: <ocir-image-uri>
     restart: always
@@ -39,7 +38,6 @@ services:
       - findsenryu-admin-contact-channel-id
       - findsenryu-server-enabled
       - findsenryu-server-port
-      - findsenryu-encryption-key
     # healthcheck disabled — distroless has no shell/curl
     # Use Docker restart policy for recovery
     stop_grace_period: 30s
@@ -70,6 +68,4 @@ secrets:
   findsenryu-server-enabled:
     external: true
   findsenryu-server-port:
-    external: true
-  findsenryu-encryption-key:
     external: true

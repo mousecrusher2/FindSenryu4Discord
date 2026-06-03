@@ -8,7 +8,6 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/u16-io/FindSenryu4Discord/db"
 	"github.com/u16-io/FindSenryu4Discord/model"
-	"github.com/u16-io/FindSenryu4Discord/pkg/crypto"
 	"github.com/u16-io/FindSenryu4Discord/pkg/logger"
 	"github.com/u16-io/FindSenryu4Discord/pkg/metrics"
 )
@@ -16,75 +15,13 @@ import (
 var (
 	ErrSenryuNotFound = errors.New("senryu not found")
 	ErrDatabaseError  = errors.New("database error")
-	ErrEncryptFailed  = errors.New("failed to encrypt senryu fields")
-	ErrDecryptFailed  = errors.New("failed to decrypt senryu fields")
 )
-
-// encryptSenryuFields encrypts the content fields (Kamigo, Nakasichi, Simogo) in place.
-func encryptSenryuFields(s *model.Senryu) error {
-	if !crypto.IsEnabled() {
-		return nil
-	}
-	var err error
-	if s.Kamigo, err = crypto.Encrypt(s.Kamigo); err != nil {
-		return errors.Wrap(ErrEncryptFailed, err.Error())
-	}
-	if s.Nakasichi, err = crypto.Encrypt(s.Nakasichi); err != nil {
-		return errors.Wrap(ErrEncryptFailed, err.Error())
-	}
-	if s.Simogo, err = crypto.Encrypt(s.Simogo); err != nil {
-		return errors.Wrap(ErrEncryptFailed, err.Error())
-	}
-	return nil
-}
-
-// decryptSenryuFields decrypts the content fields (Kamigo, Nakasichi, Simogo) in place.
-// Plaintext (unencrypted) fields are left as-is.
-func decryptSenryuFields(s *model.Senryu) error {
-	if !crypto.IsEnabled() {
-		return nil
-	}
-	var err error
-	if crypto.IsEncrypted(s.Kamigo) {
-		if s.Kamigo, err = crypto.Decrypt(s.Kamigo); err != nil {
-			return errors.Wrap(ErrDecryptFailed, err.Error())
-		}
-	}
-	if crypto.IsEncrypted(s.Nakasichi) {
-		if s.Nakasichi, err = crypto.Decrypt(s.Nakasichi); err != nil {
-			return errors.Wrap(ErrDecryptFailed, err.Error())
-		}
-	}
-	if crypto.IsEncrypted(s.Simogo) {
-		if s.Simogo, err = crypto.Decrypt(s.Simogo); err != nil {
-			return errors.Wrap(ErrDecryptFailed, err.Error())
-		}
-	}
-	return nil
-}
-
-// decryptSenryuSlice decrypts content fields for all senryus in the slice.
-func decryptSenryuSlice(senryus []model.Senryu) error {
-	for i := range senryus {
-		if err := decryptSenryuFields(&senryus[i]); err != nil {
-			return err
-		}
-	}
-	return nil
-}
 
 // CreateSenryu creates a new senryu record
 func CreateSenryu(s model.Senryu) (model.Senryu, error) {
 	metrics.RecordDatabaseOperation("create_senryu")
 
-	// Encrypt a copy for DB storage; keep the original fields intact for the caller
-	dbRecord := s
-	if err := encryptSenryuFields(&dbRecord); err != nil {
-		logger.Error("Failed to encrypt senryu", "error", err)
-		return s, err
-	}
-
-	if err := db.DB.Create(&dbRecord).Error; err != nil {
+	if err := db.DB.Create(&s).Error; err != nil {
 		metrics.RecordError("database")
 		logger.Error("Failed to create senryu",
 			"error", err,
@@ -93,10 +30,6 @@ func CreateSenryu(s model.Senryu) (model.Senryu, error) {
 		)
 		return s, errors.Wrap(err, "failed to create senryu")
 	}
-
-	// Copy DB-assigned fields back to the plaintext version
-	s.ID = dbRecord.ID
-	s.CreatedAt = dbRecord.CreatedAt
 
 	metrics.RecordSenryuDetected(s.ServerID)
 	logger.Debug("Senryu created",
@@ -122,11 +55,6 @@ func GetLastSenryu(serverID string) (*model.Senryu, error) {
 			"server_id", serverID,
 		)
 		return nil, errors.Wrap(err, "failed to get last senryu")
-	}
-
-	if err := decryptSenryuFields(&s); err != nil {
-		logger.Error("Failed to decrypt senryu", "error", err, "id", s.ID)
-		return nil, err
 	}
 
 	return &s, nil
@@ -163,11 +91,6 @@ func GetThreeRandomSenryus(serverID string) ([]model.Senryu, error) {
 			return nil, errors.Wrap(err, "failed to get random senryu")
 		}
 		result = append(result, s)
-	}
-
-	if err := decryptSenryuSlice(result); err != nil {
-		logger.Error("Failed to decrypt random senryus", "error", err)
-		return nil, err
 	}
 
 	return result, nil
@@ -233,11 +156,6 @@ func GetRecentSenryusByAuthor(serverID, authorID string, limit int) ([]model.Sen
 		return nil, errors.Wrap(err, "failed to get recent senryus by author")
 	}
 
-	if err := decryptSenryuSlice(senryus); err != nil {
-		logger.Error("Failed to decrypt senryus by author", "error", err)
-		return nil, err
-	}
-
 	return senryus, nil
 }
 
@@ -255,10 +173,6 @@ func GetSenryusByAuthorPaged(serverID, authorID string, limit, offset int) ([]mo
 			"author_id", authorID,
 		)
 		return nil, errors.Wrap(err, "failed to get senryus by author paged")
-	}
-
-	if err := decryptSenryuSlice(senryus); err != nil {
-		return nil, errors.Wrap(err, "failed to decrypt senryus")
 	}
 
 	return senryus, nil
@@ -300,11 +214,6 @@ func GetSenryuByID(id int, serverID string) (*model.Senryu, error) {
 			"server_id", serverID,
 		)
 		return nil, errors.Wrap(err, "failed to get senryu by ID")
-	}
-
-	if err := decryptSenryuFields(&s); err != nil {
-		logger.Error("Failed to decrypt senryu", "error", err, "id", s.ID)
-		return nil, err
 	}
 
 	return &s, nil

@@ -13,7 +13,6 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/u16-io/FindSenryu4Discord/config"
 	"github.com/u16-io/FindSenryu4Discord/model"
-	"github.com/u16-io/FindSenryu4Discord/pkg/crypto"
 	"github.com/u16-io/FindSenryu4Discord/pkg/logger"
 
 	// PostgreSQL driver for Gorm
@@ -91,114 +90,7 @@ func Migrate() error {
 		return err
 	}
 
-	// Guard: refuse to start if DB has encrypted data but encryption is disabled
-	if !crypto.IsEnabled() && isEncryptionMigrated() {
-		return errors.New("database contains encrypted data but encryption key is not configured; set podman secret findsenryu-encryption-key")
-	}
-
-	// Encrypt existing plaintext senryu data if encryption is enabled.
-	// Always run (not gated by isEncryptionMigrated) because the function is
-	// idempotent and skips already-encrypted records. This ensures late-arriving
-	// plaintext rows are caught on every startup.
-	if crypto.IsEnabled() {
-		if err := migrateEncryptSenryuData(); err != nil {
-			logger.Error("Failed to encrypt existing senryu data", "error", err)
-			return err
-		}
-	}
-
 	logger.Info("Database migration completed")
-
-	return nil
-}
-
-// isEncryptionMigrated checks the metadata table for encryption migration state.
-func isEncryptionMigrated() bool {
-	var value string
-	row := DB.DB().QueryRow("SELECT value FROM metadata WHERE key = 'encryption_migrated'")
-	if err := row.Scan(&value); err != nil {
-		return false
-	}
-	return value == "true"
-}
-
-// setEncryptionMigrated marks the encryption migration as completed.
-func setEncryptionMigrated() error {
-	_, err := DB.DB().Exec(
-		"INSERT INTO metadata (key, value) VALUES ('encryption_migrated', 'true') ON CONFLICT (key) DO UPDATE SET value = 'true'",
-	)
-	return err
-}
-
-// migrateEncryptSenryuData encrypts existing plaintext senryu records.
-// Uses cursor-based pagination (WHERE id > ?) and wraps each batch in a transaction.
-func migrateEncryptSenryuData() error {
-	const batchSize = 100
-	var total, encrypted int
-	var lastID int
-
-	for {
-		var senryus []model.Senryu
-		if err := DB.Where("id > ?", lastID).Order("id ASC").Limit(batchSize).Find(&senryus).Error; err != nil {
-			return err
-		}
-		if len(senryus) == 0 {
-			break
-		}
-
-		tx := DB.Begin()
-		if tx.Error != nil {
-			return tx.Error
-		}
-
-		for i := range senryus {
-			total++
-			s := &senryus[i]
-			lastID = s.ID
-
-			if crypto.IsEncrypted(s.Kamigo) {
-				continue
-			}
-
-			kamigo, err := crypto.Encrypt(s.Kamigo)
-			if err != nil {
-				tx.Rollback()
-				return err
-			}
-			nakasichi, err := crypto.Encrypt(s.Nakasichi)
-			if err != nil {
-				tx.Rollback()
-				return err
-			}
-			simogo, err := crypto.Encrypt(s.Simogo)
-			if err != nil {
-				tx.Rollback()
-				return err
-			}
-
-			if err := tx.Model(s).Updates(map[string]interface{}{
-				"kamigo":    kamigo,
-				"nakasichi": nakasichi,
-				"simogo":    simogo,
-			}).Error; err != nil {
-				tx.Rollback()
-				return err
-			}
-			encrypted++
-		}
-
-		if err := tx.Commit().Error; err != nil {
-			return err
-		}
-	}
-
-	if encrypted > 0 {
-		logger.Info("Encrypted existing senryu data", "encrypted", encrypted, "total", total)
-	}
-
-	if err := setEncryptionMigrated(); err != nil {
-		return err
-	}
 
 	return nil
 }
