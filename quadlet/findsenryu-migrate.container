@@ -3,6 +3,8 @@ PartOf=findsenryu4discord.target
 Requires=findsenryu-image.service
 After=findsenryu-image.service
 Before=findsenryu-app.service
+StartLimitIntervalSec=120s
+StartLimitBurst=10
 
 [Container]
 ContainerName=findsenryu-migrate
@@ -34,6 +36,8 @@ StandardError=journal
 SyslogLevelPrefix=yes
 Type=oneshot
 RemainAfterExit=yes
+Restart=on-failure
+RestartSec=5s
 
 [Install]
 WantedBy=findsenryu4discord.target
