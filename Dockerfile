@@ -22,3 +22,4 @@ COPY --from=builder /build/healthcheck /app/healthcheck
 EXPOSE 9090
 
 ENTRYPOINT ["/app/bot"]
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=120s CMD ["/app/healthcheck"]
