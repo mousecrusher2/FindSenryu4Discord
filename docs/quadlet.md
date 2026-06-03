@@ -123,9 +123,9 @@ sudo curl -fsSL -o /etc/systemd/system/findsenryu4discord.target \
   "$repo/raw/refs/heads/master/systemd/findsenryu4discord.target"
 sudo chmod 0644 /etc/systemd/system/findsenryu4discord.target
 sudo podman quadlet install \
-  "$repo/blob/master/quadlet/findsenryu.image" \
-  "$repo/blob/master/quadlet/findsenryu-migrate.container" \
-  "$repo/blob/master/quadlet/findsenryu-app.container"
+  "$repo/raw/refs/heads/master/quadlet/findsenryu.image" \
+  "$repo/raw/refs/heads/master/quadlet/findsenryu-migrate.container" \
+  "$repo/raw/refs/heads/master/quadlet/findsenryu-app.container"
 sudo systemctl enable --now findsenryu4discord.target
 ```
 
@@ -147,9 +147,9 @@ sudo curl -fsSL -o /etc/systemd/system/findsenryu4discord.target \
   "$repo/raw/refs/heads/master/systemd/findsenryu4discord.target"
 sudo chmod 0644 /etc/systemd/system/findsenryu4discord.target
 sudo podman quadlet install \
-  "$repo/blob/master/quadlet/findsenryu.image" \
-  "$repo/blob/master/quadlet/findsenryu-migrate.container" \
-  "$repo/blob/master/quadlet/findsenryu-app.container"
+  "$repo/raw/refs/heads/master/quadlet/findsenryu.image" \
+  "$repo/raw/refs/heads/master/quadlet/findsenryu-migrate.container" \
+  "$repo/raw/refs/heads/master/quadlet/findsenryu-app.container"
 sudo systemctl restart findsenryu4discord.target
 ```
 
