@@ -111,10 +111,12 @@ func Close() error {
 // IsConnected returns true if database is connected
 func IsConnected() bool {
 	if DB == nil {
+		logger.Error("Database connection check failed: DB is nil")
 		return false
 	}
 	sqlDB := DB.DB()
 	if sqlDB == nil {
+		logger.Error("Database connection check failed: sqlDB is nil")
 		return false
 	}
 	if err := sqlDB.Ping(); err != nil {
