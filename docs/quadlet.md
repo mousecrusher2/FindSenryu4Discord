@@ -17,6 +17,20 @@ app と migrate は rootful Podman で起動しますが、container は `UserNS
 
 `UserNS=auto` は container ごとに割り当て range が変わり得ます。host 側 file owner と共有 volume に依存する構成では問題になりますが、この構成では application data を外部 PostgreSQL に置き、config も bind mount しないため、その制約を避けています。
 
+### subuid / subgid の範囲拡張
+
+複数コンテナで `UserNS=auto` を利用する場合、各コンテナに割り当てるための十分な UID/GID の範囲が `/etc/subuid` および `/etc/subgid` に定義されている必要があります。
+
+デフォルトの割当数（`containers:100000:65536` など）では、1つのコンテナが範囲全体（65,536個）を消費してしまい、他の `UserNS=auto` を使うコンテナが `not enough unused uids` エラーで起動できなくなります。
+
+以下のように `/etc/subuid` と `/etc/subgid` の割当数を増やすことで、複数の `UserNS=auto` コンテナを同時に起動できるようになります。
+
+```bash
+# 既存の割り当てを 1000000 (100万) に拡張する例
+sudo sed -i 's/containers:100000:65536/containers:100000:1000000/' /etc/subuid
+sudo sed -i 's/containers:100000:65536/containers:100000:1000000/' /etc/subgid
+```
+
 ## Logging
 
 `findsenryu-migrate.container` と `findsenryu-app.container` は `LogDriver=passthrough` を指定します。Podman の logging driver で stdout/stderr を再解釈せず、Podman process の stdout/stderr を systemd service の journal 入力へ渡すためです。
