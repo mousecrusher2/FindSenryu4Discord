@@ -121,6 +121,7 @@ repo=https://github.com/mousecrusher2/FindSenryu4Discord
 
 sudo curl -fsSL -o /etc/systemd/system/findsenryu4discord.target \
   "$repo/raw/refs/heads/master/systemd/findsenryu4discord.target"
+sudo chmod 0644 /etc/systemd/system/findsenryu4discord.target
 sudo podman quadlet install --replace \
   "$repo/blob/master/quadlet/findsenryu.image" \
   "$repo/blob/master/quadlet/findsenryu-migrate.container" \
@@ -144,6 +145,7 @@ repo=https://github.com/mousecrusher2/FindSenryu4Discord
 
 sudo curl -fsSL -o /etc/systemd/system/findsenryu4discord.target \
   "$repo/raw/refs/heads/master/systemd/findsenryu4discord.target"
+sudo chmod 0644 /etc/systemd/system/findsenryu4discord.target
 sudo podman quadlet install --replace \
   "$repo/blob/master/quadlet/findsenryu.image" \
   "$repo/blob/master/quadlet/findsenryu-migrate.container" \
