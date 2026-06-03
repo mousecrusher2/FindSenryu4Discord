@@ -1,6 +1,6 @@
 # OCIR デプロイ
 
-GitHub Actions は Dockerfile からイメージをビルドして Oracle Cloud Infrastructure Registry (OCIR) に push します。Compose と Quadlet はそのイメージを参照します。
+GitHub Actions は Dockerfile からイメージをビルドして Oracle Cloud Infrastructure Registry (OCIR) に push します。Compose と Quadlet はそのイメージを参照します。deploy host での OCIR pull 認証は `docker-credential-ocir` と credential helper 名 `ocir` を使う前提です。
 
 ## OCIR イメージ URI
 
@@ -44,7 +44,7 @@ OCIR_IMAGE=<ocir-registry>/<tenancy-namespace>/<repo-name>:latest
 | `<repo-name>` | Container Registry に作成した repository 名 |
 | `:latest` | この workflow で push する tag。別 tag にする場合は `OCIR_IMAGE` secret 側を変更します |
 
-### 2. Push 用ユーザーと権限を用意する
+### 2. Push と deploy の権限を用意する
 
 push 用ユーザーを OCI IAM group に入れ、その group に repository への push 権限を付与します。
 
@@ -66,9 +66,21 @@ Allow group <group-name> to manage repos in compartment <compartment-name> where
 Allow group <group-name> to manage repos in compartment <compartment-name>
 ```
 
-### 3. Auth Token を作成する
+deploy host は `docker-credential-ocir` と OCI instance principal で OCIR へ認証する前提です。deploy host の instance を Dynamic Group に入れ、その Dynamic Group に pull 権限を付与します。
 
-push 用ユーザーで OCI Console に入り、次の手順で Auth Token を作成します。
+```text
+Allow dynamic-group <dynamic-group-name> to read repos in compartment <compartment-name>
+```
+
+deploy host から push も行う場合は `manage repos` が必要です。
+
+```text
+Allow dynamic-group <dynamic-group-name> to manage repos in compartment <compartment-name>
+```
+
+### 3. GitHub Actions 用 Auth Token を作成する
+
+GitHub-hosted runner で `.github/workflows/publish-ocir.yml` を使う場合は、push 用ユーザーで OCI Console に入り、次の手順で Auth Token を作成します。
 
 1. Profile menu から `User settings` を開きます。
 2. `Auth Tokens` を開きます。
@@ -90,18 +102,29 @@ OCIR の login username は通常次の形式です。
 <tenancy-namespace>/<identity-domain>/<oci-username>
 ```
 
-### 4. ローカルで login を確認する
+### 4. Deploy host で credential helper を確認する
 
-GitHub Secrets に入れる前に、手元またはデプロイ先で login できることを確認します。
+deploy host には `docker-credential-ocir` と OCI CLI を入れます。credential helper の config 値は `ocir` です。
 
 ```bash
 export OCIR_REGISTRY="<ocir-registry>"
-export OCIR_USERNAME="<tenancy-namespace>/<oci-username>"
 
-docker login "$OCIR_REGISTRY" -u "$OCIR_USERNAME"
+command -v docker-credential-ocir
+oci iam region list --auth instance_principal
+
+mkdir -p "$HOME/.docker"
+cat > "$HOME/.docker/config.json" <<EOF
+{
+  "credHelpers": {
+    "$OCIR_REGISTRY": "ocir"
+  }
+}
+EOF
+
+docker pull "<ocir-image-uri>"
 ```
 
-password には OCI Auth Token を入力します。
+`docker-credential-ocir` は OCI CLI を使って OCIR token を取得します。instance principal で認証する前提では、deploy host で `docker login` や静的な OCI Auth Token を使いません。
 
 ### 5. GitHub Secrets に設定する
 
@@ -109,9 +132,9 @@ password には OCI Auth Token を入力します。
 
 | Secret | 入れる値 |
 | --- | --- |
-| `OCIR_REGISTRY` | `docker login` の registry 引数に渡す値 |
+| `OCIR_REGISTRY` | `docker/login-action` の registry に渡す値 |
 | `OCIR_IMAGE` | `docker/build-push-action` の `tags` に渡す完全な image URI |
-| `OCIR_USERNAME` | `docker login` の username |
+| `OCIR_USERNAME` | `docker/login-action` の username |
 | `OCIR_AUTH_TOKEN` | OCI Auth Token |
 
 `.github/workflows/publish-ocir.yml` は `master` への push、`v` で始まる tag、手動実行で動作します。push する tag は `OCIR_IMAGE` secret に含めた tag です。
@@ -138,14 +161,24 @@ printf '\n' | podman secret create --replace findsenryu-admin-contact-channel-id
 printf '%s' 'true' | podman secret create --replace findsenryu-server-enabled -
 printf '%s' '9090' | podman secret create --replace findsenryu-server-port -
 
-docker login "<ocir-registry>" -u "<tenancy-namespace>/<oci-username>"
+command -v docker-credential-ocir
+oci iam region list --auth instance_principal
+mkdir -p "$HOME/.docker"
+cat > "$HOME/.docker/config.json" <<'EOF'
+{
+  "credHelpers": {
+    "<ocir-registry>": "ocir"
+  }
+}
+EOF
+
 docker compose pull
 docker compose up -d
 ```
 
 `compose.yaml` は external secret を宣言します。実行する Compose 実装が external secret を扱えない場合は、Quadlet 手順を使ってください。アプリケーションデータは外部 PostgreSQL に保存されます。Compose は named volume と `config.toml` bind mount を使いません。
 
-`docker compose pull` と `docker compose up` は OCIR から image を pull するため、デプロイ先でも `docker login "$OCIR_REGISTRY" -u "$OCIR_USERNAME"` が必要です。password には OCI Auth Token を入力してください。
+`docker compose pull` と `docker compose up` は OCIR から image を pull するため、デプロイ先の Docker config には `<ocir-registry>` の `credHelpers` として `ocir` を設定してください。helper binary は `docker-credential-ocir` という名前で `PATH` から実行できる必要があります。
 
 ## 参考
 
@@ -153,4 +186,6 @@ docker compose up -d
 - Oracle Container Registry prerequisites: https://docs.oracle.com/en-us/iaas/Content/Registry/Concepts/registryprerequisites.htm
 - Oracle pushing images with Docker CLI: https://docs.oracle.com/en-us/iaas/Content/Registry/Tasks/registrypushingimagesusingthedockercli.htm
 - Oracle auth tokens: https://docs.oracle.com/iaas/Content/Registry/Tasks/registrygettingauthtoken.htm
+- OCIR Docker credential helper: https://docs.oracle.com/en/learn/cred-helper/index.html
+- Docker credential helpers: https://docs.docker.com/reference/cli/docker/login/#credential-stores
 - GitHub Actions secrets: https://docs.github.com/actions/reference/encrypted-secrets

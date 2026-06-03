@@ -2,7 +2,7 @@
 
 `compose.yaml` は OCIR image、migrate、app、external secrets の基本形を示します。Quadlet は rootful system unit として運用し、Podman secret file mount、`UserNS=auto`、`LogDriver=passthrough` を使います。
 
-- `findsenryu.image`: OCIR image を root 管理の authfile で pull します。
+- `findsenryu.image`: OCIR image を `docker-credential-ocir` 用 authfile で pull します。
 - `findsenryu-migrate.container`: 外部 PostgreSQL に対して `/app/migrate` を実行します。
 - `findsenryu-app.container`: migrate 完了後に bot を起動します。
 - `systemd/findsenryu4discord.target`: スタック全体の運用単位です。
@@ -80,16 +80,25 @@ sed -i "s#<ocir-image-uri>#$image#g" \
   quadlet/findsenryu.image
 ```
 
-OCIR に rootful Podman として login します。rootful systemd unit から読むため、authfile は `/etc/containers/findsenryu4discord/auth.json` に固定します。
+OCIR の pull 認証は `docker-credential-ocir` を使います。credential helper の config 値は `ocir` です。rootful systemd unit から pull するため、helper と OCI CLI は root から実行できる状態にしてください。
 
 ```bash
+sudo sh -c 'command -v docker-credential-ocir'
+sudo oci iam region list --auth instance_principal
+
 sudo install -d -m 0700 /etc/containers/findsenryu4discord
-sudo podman login --authfile /etc/containers/findsenryu4discord/auth.json "<ocir-registry>" -u "<tenancy-namespace>/<oci-username>"
+sudo sh -c 'cat > /etc/containers/findsenryu4discord/auth.json' <<'EOF'
+{
+  "credHelpers": {
+    "<ocir-registry>": "ocir"
+  }
+}
+EOF
 sudo chown root:root /etc/containers/findsenryu4discord/auth.json
 sudo chmod 600 /etc/containers/findsenryu4discord/auth.json
 ```
 
-OCIR username は通常 `<tenancy-namespace>/<username>` です。フェデレートされたユーザーの場合は `<tenancy-namespace>/<domain-name>/<username>` です。password には OCI Auth Token を入力してください。
+`docker-credential-ocir` は OCI CLI を使って OCIR token を取得します。OCI instance principal で認証する前提では `podman login` と静的な OCI Auth Token は使いません。deploy host の instance を Dynamic Group に入れ、OCIR repository を pull できる policy を付与してください。
 
 Quadlet と target を install します。`findsenryu4discord.target` は Quadlet file ではないため、`podman quadlet install --replace quadlet/` では配置されません。
 
@@ -101,7 +110,7 @@ sudo systemctl enable findsenryu-image.service findsenryu-migrate.service findse
 sudo systemctl enable --now findsenryu4discord.target
 ```
 
-`sudo podman quadlet install --replace quadlet/` の出力先は rootful Quadlet search path である `/etc/containers/systemd/` であることを確認してください。`findsenryu.image` は `AuthFile=/etc/containers/findsenryu4discord/auth.json` と `Policy=always` を指定しています。`findsenryu-migrate.container` と `findsenryu-app.container` は `Image=findsenryu.image` を参照するため、起動時の pull は `findsenryu-image.service` 経由で実行されます。
+`sudo podman quadlet install --replace quadlet/` の出力先は rootful Quadlet search path である `/etc/containers/systemd/` であることを確認してください。`findsenryu.image` は `AuthFile=/etc/containers/findsenryu4discord/auth.json` と `Policy=always` を指定しています。この authfile は `<ocir-registry>` に対して credential helper `ocir` を使う設定です。`findsenryu-migrate.container` と `findsenryu-app.container` は `Image=findsenryu.image` を参照するため、起動時の pull は `findsenryu-image.service` 経由で実行されます。
 
 ログ確認:
 
@@ -181,5 +190,7 @@ podlet --file quadlet --overwrite --name findsenryu-app podman run \
 - Quadlet file syntax: https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html
 - Podman secrets: https://docs.podman.io/en/latest/markdown/podman-secret-create.1.html
 - `podman run --secret` / `--userns` / `--log-driver`: https://docs.podman.io/en/latest/markdown/podman-run.1.html
+- containers auth.json credential helpers: https://manpages.ubuntu.com/manpages/noble/man5/containers-auth.json.5.html
+- OCIR Docker credential helper: https://docs.oracle.com/en/learn/cred-helper/index.html
 - systemd target units: https://www.freedesktop.org/software/systemd/man/latest/systemd.target.html
 - systemd stdout/stderr priority prefix: https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html
