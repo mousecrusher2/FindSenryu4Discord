@@ -25,8 +25,6 @@ const (
 	secretLogFormat             = "findsenryu-log-format"
 	secretAdminOwnerIDs         = "findsenryu-admin-owner-ids"
 	secretAdminGuildID          = "findsenryu-admin-guild-id"
-	secretAdminLogChannelID     = "findsenryu-admin-log-channel-id"
-	secretAdminReportChannelID  = "findsenryu-admin-report-channel-id"
 	secretAdminContactChannelID = "findsenryu-admin-contact-channel-id"
 )
 
@@ -70,8 +68,6 @@ type LogConfig struct {
 type AdminConfig struct {
 	OwnerIDs         []string
 	GuildID          string
-	LogChannelID     string
-	ReportChannelID  string
 	ContactChannelID string
 }
 
@@ -202,12 +198,6 @@ func loadAdminSecrets(c *Config, dir string) error {
 		return err
 	}
 	if c.Admin.GuildID, err = readOptionalSecret(dir, secretAdminGuildID); err != nil {
-		return err
-	}
-	if c.Admin.LogChannelID, err = readOptionalSecret(dir, secretAdminLogChannelID); err != nil {
-		return err
-	}
-	if c.Admin.ReportChannelID, err = readOptionalSecret(dir, secretAdminReportChannelID); err != nil {
 		return err
 	}
 	if c.Admin.ContactChannelID, err = readOptionalSecret(dir, secretAdminContactChannelID); err != nil {

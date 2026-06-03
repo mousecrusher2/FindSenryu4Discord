@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -17,7 +16,6 @@ import (
 	"github.com/mousecrusher2/FindSenryu4Discord/config"
 	"github.com/mousecrusher2/FindSenryu4Discord/db"
 	"github.com/mousecrusher2/FindSenryu4Discord/model"
-	"github.com/mousecrusher2/FindSenryu4Discord/pkg/adminnotify"
 	"github.com/mousecrusher2/FindSenryu4Discord/pkg/logger"
 	"github.com/mousecrusher2/FindSenryu4Discord/pkg/permissions"
 	"github.com/mousecrusher2/FindSenryu4Discord/service"
@@ -29,7 +27,6 @@ import (
 
 var (
 	startTime       time.Time
-	adminNotifier   *adminnotify.Manager
 	botReady        atomic.Bool
 	guildCacheTimer atomic.Pointer[time.Timer]
 	allSessions     []*discordgo.Session
@@ -272,13 +269,6 @@ func main() {
 	// Update game status
 	dg.UpdateGameStatus(1, conf.Discord.Playing)
 
-	// Initialize admin notification manager
-	if conf.Admin.LogChannelID != "" || conf.Admin.ReportChannelID != "" {
-		adminNotifier = adminnotify.NewManager(dg, conf.Admin.LogChannelID, conf.Admin.ReportChannelID)
-		adminNotifier.SetAllSessions(allSessions)
-		adminNotifier.Start()
-		adminNotifier.NotifyStarted()
-	}
 	botReady.Store(true)
 
 	logger.Info("Bot is now running. Press CTRL-C to exit.")
@@ -290,16 +280,6 @@ func main() {
 
 	// Graceful shutdown
 	logger.Info("Shutting down...")
-
-	// Create shutdown context with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	// Stop admin notification manager
-	if adminNotifier != nil {
-		adminNotifier.NotifyStopping()
-		adminNotifier.Stop(ctx)
-	}
 
 	// Slash commands are intentionally NOT removed on shutdown.
 	// ApplicationCommandCreate (called on startup) is an upsert, so commands
@@ -368,9 +348,6 @@ func guildCreate(s *discordgo.Session, g *discordgo.GuildCreate) {
 		return
 	}
 	logger.Info("Joined guild", "name", g.Name, "id", g.ID)
-	if adminNotifier != nil {
-		adminNotifier.NotifyGuildJoin(g.Guild)
-	}
 	go commands.SendWelcomeMessage(s, g)
 }
 
@@ -401,9 +378,6 @@ func guildDelete(s *discordgo.Session, g *discordgo.GuildDelete) {
 		"channel_configs", channelConfigCount,
 	)
 
-	if botReady.Load() && adminNotifier != nil {
-		adminNotifier.NotifyGuildLeave(g, senryuCount, optOutCount)
-	}
 }
 
 func interactionCreate(s *discordgo.Session, i *discordgo.InteractionCreate) {
