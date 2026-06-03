@@ -1,8 +1,7 @@
 name: Test
 
 on:
-  push:
-    branches: [master]
+  workflow_call:
   pull_request:
     branches: [master]
 
@@ -17,6 +16,8 @@ jobs:
           go-version-file: go.mod
 
       - name: Build
+        env:
+          CGO_ENABLED: "0"
         run: |
           go build -o /dev/null .
           go build -o /dev/null ./cmd/migrate
