@@ -1,6 +1,5 @@
 [Unit]
 Description=FindSenryu4Discord stack
-Wants=findsenryu-image.service findsenryu-migrate.service findsenryu-app.service
 
 [Install]
 WantedBy=multi-user.target

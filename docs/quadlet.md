@@ -9,7 +9,7 @@
 
 named volume と `config.toml` bind mount は使いません。設定はすべて Podman secret として container 内の `/run/secrets/<secret-name>` に mount します。PostgreSQL は外部にあるものへ接続する前提で、この repository では PostgreSQL container を用意しません。
 
-`findsenryu4discord.target` は `Wants=` で生成 service を列挙します。Quadlet generator は `[Install]` セクションを無視するため、Quadlet file に `[Install] WantedBy=` を書いても `systemctl enable` は使えません。代わりに target 側の `Wants=` で service を接続し、target の start 時に生成 service を pull-in します。起動順序と失敗時の依存は各 service 側の `Requires=` / `After=` / `Before=` で表現します。
+Quadlet generator が生成する service は transient unit であるため `systemctl enable` は使えません。代わりに Quadlet file の `[Install] WantedBy=findsenryu4discord.target` を generator が生成時に処理し、`systemctl enable` 相当の `.wants/` symlink を自動的に作成します。そのため `findsenryu4discord.target` 側に `Wants=` を書く必要はありません。起動順序と失敗時の依存は各 service 側の `Requires=` / `After=` / `Before=` で表現します。
 
 ## User Namespace
 
@@ -114,7 +114,7 @@ sudo chmod 600 /etc/containers/auth/findsenryu4discord.json
 
 Quadlet と target を install します。repository を clone する必要はありません。
 
-`findsenryu4discord.target` は Quadlet file ではないため、`podman quadlet install` では配置できません。`curl` で GitHub から直接取得して `/etc/systemd/system/` に配置します。target を先に配置してから `podman quadlet install` を実行してください。`podman quadlet install` は内部で `systemctl daemon-reload` を実行するため、この時点で target の `Wants=` と生成 service が同時に揃います。
+`findsenryu4discord.target` は Quadlet file ではないため、`podman quadlet install` では配置できません。`curl` で GitHub から直接取得して `/etc/systemd/system/` に配置します。target を先に配置してから `podman quadlet install` を実行してください。`podman quadlet install` は内部で `systemctl daemon-reload` を実行するため、この時点で target と生成 service が同時に揃います。各 Quadlet file の `[Install] WantedBy=findsenryu4discord.target` を generator が処理し、`.wants/` symlink を自動作成するため `systemctl enable` は不要です。
 
 ```bash
 repo=https://github.com/mousecrusher2/FindSenryu4Discord
@@ -217,7 +217,7 @@ podlet --file quadlet --overwrite --name findsenryu-app podman run \
   "$image"
 ```
 
-再生成後は、管理対象ファイルの `findsenryu.image`、container 側の `Image=findsenryu.image`、target 構成、`[Unit]` / `[Service]` の依存関係を再適用してください。Quadlet file に `[Install]` セクションは書かないでください（generator が無視するため）。`findsenryu4discord.target` は Quadlet file ではないため、`podman quadlet install` では配置されません。`curl` で取得して `/etc/systemd/system/` に配置してください。
+再生成後は、管理対象ファイルの `findsenryu.image`、container 側の `Image=findsenryu.image`、target 構成、`[Unit]` / `[Service]` の依存関係、`[Install] WantedBy=findsenryu4discord.target` を再適用してください。`findsenryu4discord.target` は Quadlet file ではないため、`podman quadlet install` では配置されません。`curl` で取得して `/etc/systemd/system/` に配置してください。
 
 ## 参考
 

@@ -40,3 +40,5 @@ SyslogLevelPrefix=yes
 Restart=always
 TimeoutStopSec=30
 
+[Install]
+WantedBy=findsenryu4discord.target
