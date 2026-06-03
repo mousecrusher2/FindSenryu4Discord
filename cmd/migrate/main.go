@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/u16-io/FindSenryu4Discord/config"
-	"github.com/u16-io/FindSenryu4Discord/db"
-	"github.com/u16-io/FindSenryu4Discord/pkg/logger"
+	"github.com/mousecrusher2/FindSenryu4Discord/config"
+	"github.com/mousecrusher2/FindSenryu4Discord/db"
+	"github.com/mousecrusher2/FindSenryu4Discord/pkg/logger"
 )
 
 func main() {

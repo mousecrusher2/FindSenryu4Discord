@@ -9,11 +9,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mousecrusher2/FindSenryu4Discord/config"
+	"github.com/mousecrusher2/FindSenryu4Discord/db"
+	"github.com/mousecrusher2/FindSenryu4Discord/pkg/logger"
+	"github.com/mousecrusher2/FindSenryu4Discord/pkg/metrics"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/u16-io/FindSenryu4Discord/config"
-	"github.com/u16-io/FindSenryu4Discord/db"
-	"github.com/u16-io/FindSenryu4Discord/pkg/logger"
-	"github.com/u16-io/FindSenryu4Discord/pkg/metrics"
 )
 
 // Server represents the health check HTTP server

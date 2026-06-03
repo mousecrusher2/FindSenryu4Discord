@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/u16-io/FindSenryu4Discord/pkg/logger"
-	"github.com/u16-io/FindSenryu4Discord/pkg/metrics"
-	"github.com/u16-io/FindSenryu4Discord/service"
+	"github.com/mousecrusher2/FindSenryu4Discord/pkg/logger"
+	"github.com/mousecrusher2/FindSenryu4Discord/pkg/metrics"
+	"github.com/mousecrusher2/FindSenryu4Discord/service"
 )
 
 // requiredPermission represents a Discord permission required by the bot

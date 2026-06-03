@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/u16-io/FindSenryu4Discord/pkg/logger"
-	"github.com/u16-io/FindSenryu4Discord/service"
+	"github.com/mousecrusher2/FindSenryu4Discord/pkg/logger"
+	"github.com/mousecrusher2/FindSenryu4Discord/service"
 )
 
 // Manager handles admin notifications (guild join/leave, daily summary).

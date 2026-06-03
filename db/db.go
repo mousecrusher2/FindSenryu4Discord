@@ -11,9 +11,9 @@ import (
 	"github.com/golang-migrate/migrate/v4/source"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/jinzhu/gorm"
-	"github.com/u16-io/FindSenryu4Discord/config"
-	"github.com/u16-io/FindSenryu4Discord/model"
-	"github.com/u16-io/FindSenryu4Discord/pkg/logger"
+	"github.com/mousecrusher2/FindSenryu4Discord/config"
+	"github.com/mousecrusher2/FindSenryu4Discord/model"
+	"github.com/mousecrusher2/FindSenryu4Discord/pkg/logger"
 
 	// PostgreSQL driver for Gorm
 	_ "github.com/lib/pq"

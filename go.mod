@@ -1,4 +1,4 @@
-module github.com/u16-io/FindSenryu4Discord
+module github.com/mousecrusher2/FindSenryu4Discord
 
 go 1.26.1
 

@@ -6,9 +6,9 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/jinzhu/gorm"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/u16-io/FindSenryu4Discord/db"
-	"github.com/u16-io/FindSenryu4Discord/model"
-	"github.com/u16-io/FindSenryu4Discord/service"
+	"github.com/mousecrusher2/FindSenryu4Discord/db"
+	"github.com/mousecrusher2/FindSenryu4Discord/model"
+	"github.com/mousecrusher2/FindSenryu4Discord/service"
 )
 
 func setupTestDB(t *testing.T) {
