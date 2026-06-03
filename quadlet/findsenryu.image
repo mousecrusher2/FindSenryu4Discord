@@ -1,0 +1,7 @@
+[Unit]
+PartOf=findsenryu4discord.target
+
+[Image]
+AuthFile=/etc/containers/findsenryu4discord/auth.json
+Image=<ocir-image-uri>
+Policy=always

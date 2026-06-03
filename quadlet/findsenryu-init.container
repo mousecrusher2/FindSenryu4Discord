@@ -1,0 +1,17 @@
+[Unit]
+PartOf=findsenryu4discord.target
+Requires=findsenryu-data-volume.service
+After=findsenryu-data-volume.service
+Before=findsenryu-migrate.service
+
+[Container]
+ContainerName=findsenryu-init
+Exec=sh -c 'mkdir -p /app/data/backups && chown -R 65532:65532 /app/data'
+Image=busybox:latest
+GIDMap=0:100000:65536
+UIDMap=0:100000:65536
+Volume=findsenryu-data:/app/data:U
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes

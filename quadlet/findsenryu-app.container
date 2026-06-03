@@ -1,0 +1,18 @@
+[Unit]
+PartOf=findsenryu4discord.target
+Requires=findsenryu-migrate.service findsenryu-image.service
+After=findsenryu-migrate.service findsenryu-image.service
+
+[Container]
+ContainerName=findsenryu-app
+Environment=TZ=Asia/Tokyo
+Image=findsenryu.image
+GIDMap=0:100000:65536
+UIDMap=0:100000:65536
+PublishPort=9090:9090
+Volume=findsenryu-data:/app/data
+Volume=/opt/findsenryu4discord/config.toml:/app/config.toml:ro
+
+[Service]
+Restart=always
+TimeoutStopSec=30

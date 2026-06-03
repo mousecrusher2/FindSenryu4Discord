@@ -103,6 +103,11 @@
 
 ## Self-hosting
 
+OCIR/Compose/Quadlet で運用する場合は、先に次の手順を参照してください。
+
+- [OCIR Deployment](docs/ocir.md)
+- [Quadlet Deployment](docs/quadlet.md)
+
 ### 設定
 
 `sample.config.toml` を `config.toml` にコピーして編集してください。
