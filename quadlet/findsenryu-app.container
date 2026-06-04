@@ -19,7 +19,6 @@ Secret=findsenryu-log-level
 Secret=findsenryu-log-format
 Secret=findsenryu-admin-owner-ids
 Secret=findsenryu-admin-guild-id
-Secret=findsenryu-admin-contact-channel-id
 UserNS=auto
 
 [Service]

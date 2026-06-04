@@ -12,18 +12,17 @@ import (
 const secretDir = "/run/secrets"
 
 const (
-	secretDiscordToken          = "findsenryu-discord-token"
-	secretDiscordPlaying        = "findsenryu-discord-playing"
-	secretPGHost                = "findsenryu-pghost"
-	secretPGDatabase            = "findsenryu-pgdatabase"
-	secretPGUser                = "findsenryu-pguser"
-	secretPGPassword            = "findsenryu-pgpassword"
-	secretPGSSLMode             = "findsenryu-pgsslmode"
-	secretLogLevel              = "findsenryu-log-level"
-	secretLogFormat             = "findsenryu-log-format"
-	secretAdminOwnerIDs         = "findsenryu-admin-owner-ids"
-	secretAdminGuildID          = "findsenryu-admin-guild-id"
-	secretAdminContactChannelID = "findsenryu-admin-contact-channel-id"
+	secretDiscordToken   = "findsenryu-discord-token"
+	secretDiscordPlaying = "findsenryu-discord-playing"
+	secretPGHost         = "findsenryu-pghost"
+	secretPGDatabase     = "findsenryu-pgdatabase"
+	secretPGUser         = "findsenryu-pguser"
+	secretPGPassword     = "findsenryu-pgpassword"
+	secretPGSSLMode      = "findsenryu-pgsslmode"
+	secretLogLevel       = "findsenryu-log-level"
+	secretLogFormat      = "findsenryu-log-format"
+	secretAdminOwnerIDs  = "findsenryu-admin-owner-ids"
+	secretAdminGuildID   = "findsenryu-admin-guild-id"
 )
 
 var (
@@ -63,9 +62,8 @@ type LogConfig struct {
 
 // AdminConfig holds admin-related configuration.
 type AdminConfig struct {
-	OwnerIDs         []string
-	GuildID          string
-	ContactChannelID string
+	OwnerIDs []string
+	GuildID  string
 }
 
 // Load loads configuration from Podman secret files mounted under /run/secrets.
@@ -189,9 +187,6 @@ func loadAdminSecrets(c *Config, dir string) error {
 		return err
 	}
 	if c.Admin.GuildID, err = readOptionalSecret(dir, secretAdminGuildID); err != nil {
-		return err
-	}
-	if c.Admin.ContactChannelID, err = readOptionalSecret(dir, secretAdminContactChannelID); err != nil {
 		return err
 	}
 

@@ -138,7 +138,6 @@ var (
 		"doctor":  commands.HandleDoctorCommand,
 		"detect":  commands.HandleDetectCommand,
 		"admin":   commands.HandleAdminCommand,
-		"contact": commands.HandleContactCommand,
 	}
 )
 
@@ -233,15 +232,6 @@ func main() {
 
 	// Use shard 0 as the primary session for command registration
 	dg := allSessions[0]
-
-	// Conditionally add /contact command
-	if conf.Admin.ContactChannelID != "" {
-		userCommands = append(userCommands, &discordgo.ApplicationCommand{
-			Name:                     "contact",
-			Description:              "Bot管理者にお問い合わせを送信します",
-			DefaultMemberPermissions: &adminPermission,
-		})
-	}
 
 	// Register user commands (global)
 	logger.Info("Registering user slash commands...")
@@ -382,18 +372,6 @@ func interactionCreate(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 	case discordgo.InteractionMessageComponent:
 		handleComponentInteraction(s, i)
-	case discordgo.InteractionModalSubmit:
-		handleModalSubmitInteraction(s, i)
-	}
-}
-
-func handleModalSubmitInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	customID := i.ModalSubmitData().CustomID
-	switch {
-	case customID == commands.ContactModalCustomID:
-		commands.HandleContactModalSubmit(s, i)
-	case strings.HasPrefix(customID, commands.ReplyModalPrefix):
-		commands.HandleContactReplyModalSubmit(s, i)
 	}
 }
 
@@ -409,10 +387,6 @@ func handleComponentInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 		commands.HandleDeleteCancel(s, i)
 	case strings.HasPrefix(customID, commands.DeletePagePrefix):
 		commands.HandleDeletePage(s, i)
-	case customID == commands.ContactCategoryCustomID:
-		commands.HandleContactCategorySelect(s, i)
-	case strings.HasPrefix(customID, commands.ContactReplyPrefix):
-		commands.HandleContactReplyButton(s, i)
 	case strings.HasPrefix(customID, commands.ChannelTogglePrefix):
 		commands.HandleChannelToggle(s, i)
 	}
