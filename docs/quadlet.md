@@ -3,8 +3,8 @@
 Quadlet は OCIR image、migrate、app、external secrets の構成を rootful system unit として運用します。Podman secret file mount、`UserNS=auto`、`LogDriver=passthrough` を使います。
 
 - `findsenryu.image`: OCIR image を `docker-credential-ocir` 用 authfile で pull します。
-- `findsenryu-migrate.container`: 外部 PostgreSQL に対して `/app/migrate` を実行します。
-- `findsenryu-app.container`: migrate 完了後に bot を起動します。
+- `findsenryu-migrate.container`: 外部 PostgreSQL に対して `findsenryu migrate` を実行します。
+- `findsenryu-app.container`: migrate 完了後に `findsenryu bot` を起動します。
 - `systemd/findsenryu4discord.target`: スタック全体の運用単位です。
 
 named volume と `config.toml` bind mount は使いません。設定はすべて Podman secret として container 内の `/run/secrets/<secret-name>` に mount します。PostgreSQL は外部にあるものへ接続する前提で、この repository では PostgreSQL container を用意しません。
@@ -14,6 +14,8 @@ Quadlet generator が生成する service は transient unit であるため `sy
 ## User Namespace
 
 app と migrate は rootful Podman で起動しますが、container は `UserNS=auto` で動かします。永続 named volume を共有しないため、固定 `UIDMap` / `GIDMap` は使いません。
+
+コンテナイメージは `/app/findsenryu` を `ENTRYPOINT` とし、`bot` を default command とする単一バイナリです。`findsenryu-app.container` は image の default command で bot を起動し、`findsenryu-migrate.container` は `Exec=migrate` を指定して migration 用サブコマンドを渡します。
 
 `UserNS=auto` は container ごとに割り当て range が変わり得ます。host 側 file owner と共有 volume に依存する構成では問題になりますが、この構成では application data を外部 PostgreSQL に置き、config も bind mount しないため、その制約を避けています。
 

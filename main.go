@@ -136,6 +136,30 @@ var (
 )
 
 func main() {
+	command := "bot"
+	if len(os.Args) > 1 {
+		command = os.Args[1]
+	}
+
+	switch command {
+	case "bot":
+		runBot()
+	case "migrate":
+		runMigrate()
+	case "help", "-h", "--help":
+		printUsage(os.Stdout)
+	default:
+		fmt.Fprintf(os.Stderr, "<3>Unknown command: %s\n", command)
+		printUsage(os.Stderr)
+		os.Exit(2)
+	}
+}
+
+func printUsage(w *os.File) {
+	fmt.Fprintln(w, "Usage: findsenryu [bot|migrate]")
+}
+
+func runBot() {
 	startTime = time.Now()
 
 	// Initialize haiku dictionary
@@ -240,6 +264,36 @@ func main() {
 	}
 
 	logger.Info("Shutdown complete")
+}
+
+func runMigrate() {
+	conf, err := config.LoadMigration()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "<3>Failed to load config: %v\n", err)
+		os.Exit(1)
+	}
+
+	logger.Init(logger.Config{
+		Level:  conf.Log.Level,
+		Format: conf.Log.Format,
+	})
+
+	logger.Info("Starting database migration",
+		"db_driver", "postgres",
+	)
+
+	if err := db.Init(); err != nil {
+		logger.Error("Failed to connect to database", "error", err)
+		os.Exit(1)
+	}
+	defer db.Close()
+
+	if err := db.Migrate(); err != nil {
+		logger.Error("Migration failed", "error", err)
+		os.Exit(1)
+	}
+
+	logger.Info("Migration completed successfully")
 }
 
 func guildDelete(s *discordgo.Session, g *discordgo.GuildDelete) {
