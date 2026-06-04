@@ -39,7 +39,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=findsenryu4discord
 
       - name: Cache OCI CLI
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-${{ runner.arch }}-oci-cli-${{ hashFiles('.github/requirements/oci-cli.txt') }}
