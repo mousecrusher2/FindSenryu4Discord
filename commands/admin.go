@@ -10,8 +10,8 @@ import (
 )
 
 var (
-	startTime   time.Time
-	allSessions []*discordgo.Session
+	startTime time.Time
+	session   *discordgo.Session
 )
 
 // SetStartTime sets the start time for uptime calculation
@@ -19,20 +19,17 @@ func SetStartTime(t time.Time) {
 	startTime = t
 }
 
-// SetAllSessions sets all shard sessions for cross-shard guild counting
-func SetAllSessions(sessions []*discordgo.Session) {
-	allSessions = sessions
+// SetSession sets the Discord session used for admin statistics.
+func SetSession(s *discordgo.Session) {
+	session = s
 }
 
-// allGuilds returns guilds from all shard sessions
+// allGuilds returns guilds from the current Discord session.
 func allGuilds() []*discordgo.Guild {
-	var guilds []*discordgo.Guild
-	for _, s := range allSessions {
-		if s != nil {
-			guilds = append(guilds, s.State.Guilds...)
-		}
+	if session == nil {
+		return nil
 	}
-	return guilds
+	return session.State.Guilds
 }
 
 // AdminCommands returns the admin slash commands
