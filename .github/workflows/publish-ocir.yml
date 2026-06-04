@@ -79,7 +79,13 @@ jobs:
               --sort-by TIMECREATED \
               --sort-order DESC \
               --all |
-              jq '[.data[] | {id: .id, timeCreated: ."time-created", version: .version}]'
+              jq '[(
+                    if (.data | type) == "array" then .data
+                    elif (.data.items? | type) == "array" then .data.items
+                    else []
+                    end
+                  ) | flatten[] | select(type == "object" and .id != null and ."time-created" != null) |
+                  {id: .id, timeCreated: ."time-created", version: .version}]'
           }
 
           versioned_images="$(list_images true)"
