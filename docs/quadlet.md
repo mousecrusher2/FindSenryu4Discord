@@ -15,7 +15,7 @@ Quadlet generator が生成する service は transient unit であるため `sy
 
 app と migrate は rootful Podman で起動しますが、container は `UserNS=auto` で動かします。永続 named volume を共有しないため、固定 `UIDMap` / `GIDMap` は使いません。
 
-コンテナイメージは `/app/findsenryu` を `ENTRYPOINT` とし、`bot` を default command とする単一バイナリです。`findsenryu-app.container` は image の default command で bot を起動し、`findsenryu-migrate.container` は `Exec=migrate` を指定して migration 用サブコマンドを渡します。
+コンテナイメージは `/app/findsenryu` を `ENTRYPOINT` とし、`bot` を既定コマンドとする単一バイナリです。`findsenryu-app.container` はイメージの既定コマンドで bot を起動します。`findsenryu-migrate.container` は `Entrypoint=["/app/findsenryu","migrate"]` を指定し、既定コマンドに依存せず migration 用サブコマンドを実行します。
 
 `UserNS=auto` は container ごとに割り当て range が変わり得ます。host 側 file owner と共有 volume に依存する構成では問題になりますが、この構成では application data を外部 PostgreSQL に置き、config も bind mount しないため、その制約を避けています。
 

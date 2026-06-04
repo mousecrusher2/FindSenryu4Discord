@@ -9,7 +9,7 @@ StartLimitBurst=10
 [Container]
 ContainerName=findsenryu-migrate
 Image=findsenryu.image
-Exec=migrate
+Entrypoint=["/app/findsenryu","migrate"]
 LogDriver=passthrough
 Secret=findsenryu-pghost
 Secret=findsenryu-pgdatabase
