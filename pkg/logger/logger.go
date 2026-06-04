@@ -30,6 +30,12 @@ func Init(cfg Config) {
 	opts := &slog.HandlerOptions{
 		Level:     level,
 		AddSource: level == slog.LevelDebug,
+		ReplaceAttr: func(groups []string, attr slog.Attr) slog.Attr {
+			if len(groups) == 0 && attr.Key == slog.TimeKey {
+				return slog.Attr{}
+			}
+			return attr
+		},
 	}
 
 	priorityOutput := &journalPriorityWriter{output: output}

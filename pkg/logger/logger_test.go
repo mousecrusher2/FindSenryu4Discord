@@ -49,3 +49,21 @@ func TestJournalPriorityWriterPrefixesEachLine(t *testing.T) {
 		t.Fatalf("output = %q, want %q", got, want)
 	}
 }
+
+func TestJournaldRedundantTimeIsOmitted(t *testing.T) {
+	var out bytes.Buffer
+	Init(Config{Level: "info", Format: "text", Output: &out})
+
+	Info("hello")
+
+	got := out.String()
+	if strings.Contains(got, "time=") {
+		t.Fatalf("log output contains time: %q", got)
+	}
+	if !strings.Contains(got, "level=INFO") {
+		t.Fatalf("log output = %q, want level", got)
+	}
+	if !strings.Contains(got, "msg=hello") {
+		t.Fatalf("log output = %q, want message", got)
+	}
+}
