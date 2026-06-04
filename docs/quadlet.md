@@ -17,6 +17,8 @@ app と migrate は rootful Podman で起動しますが、container は `UserNS
 
 コンテナイメージは `/app/findsenryu` を `ENTRYPOINT` とし、`bot` を既定コマンドとする単一バイナリです。`findsenryu-app.container` はイメージの既定コマンドで bot を起動します。`findsenryu-migrate.container` は `Entrypoint=["/app/findsenryu","migrate"]` を指定し、既定コマンドに依存せず migration 用サブコマンドを実行します。
 
+イメージは `GODEBUG=disablethp=1` を設定し、Go heap に対する Linux transparent huge pages を無効化します。これは Go runtime の設定であり、ホスト全体の THP 設定は変更しません。
+
 `UserNS=auto` は container ごとに割り当て range が変わり得ます。host 側 file owner と共有 volume に依存する構成では問題になりますが、この構成では application data を外部 PostgreSQL に置き、config も bind mount しないため、その制約を避けています。
 
 ### subuid / subgid の範囲拡張

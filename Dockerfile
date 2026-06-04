@@ -14,6 +14,7 @@ FROM gcr.io/distroless/static-debian13:nonroot@sha256:963fa6c544fe5ce420f1f54fb8
 
 WORKDIR /app
 COPY --from=builder /build/findsenryu /app/findsenryu
+ENV GODEBUG=disablethp=1
 
 ENTRYPOINT ["/app/findsenryu"]
 CMD ["bot"]
