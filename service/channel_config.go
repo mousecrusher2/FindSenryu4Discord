@@ -23,16 +23,6 @@ var defaultEnabledChannelTypes = map[discordgo.ChannelType]bool{
 	discordgo.ChannelTypeGuildPrivateThread: true,
 }
 
-// ConfigurableChannelTypes returns the list of channel types that can be configured,
-// along with their default enabled state (as a copy to prevent mutation).
-func ConfigurableChannelTypes() map[discordgo.ChannelType]bool {
-	result := make(map[discordgo.ChannelType]bool, len(defaultEnabledChannelTypes))
-	for k, v := range defaultEnabledChannelTypes {
-		result[k] = v
-	}
-	return result
-}
-
 // channelConfigCache caches per-guild channel type settings in memory.
 // Key: guildID, Value: map[channelType]enabled (overrides only).
 var channelConfigCache sync.Map

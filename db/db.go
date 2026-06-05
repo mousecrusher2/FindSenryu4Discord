@@ -126,11 +126,6 @@ func IsConnected() bool {
 	return true
 }
 
-// GetDB returns the database instance
-func GetDB() *gorm.DB {
-	return DB
-}
-
 // Stats returns database statistics
 type Stats struct {
 	SenryuCount       int64

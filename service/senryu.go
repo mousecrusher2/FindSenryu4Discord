@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"time"
 
 	"github.com/jinzhu/gorm"
 	"github.com/mousecrusher2/FindSenryu4Discord/db"
@@ -130,23 +129,6 @@ func GetRanking(serverID string) ([]RankResult, error) {
 	return results, nil
 }
 
-// GetRecentSenryusByAuthor returns recent senryus by a specific author in a server
-func GetRecentSenryusByAuthor(serverID, authorID string, limit int) ([]model.Senryu, error) {
-
-	var senryus []model.Senryu
-	if err := db.DB.Where("server_id = ? AND author_id = ?", serverID, authorID).
-		Order("id DESC").Limit(limit).Find(&senryus).Error; err != nil {
-		logger.Warn("Failed to get recent senryus by author",
-			"error", err,
-			"server_id", serverID,
-			"author_id", authorID,
-		)
-		return nil, fmt.Errorf("failed to get recent senryus by author: %w", err)
-	}
-
-	return senryus, nil
-}
-
 // GetSenryusByAuthorPaged returns a page of senryus by author, ordered by ID desc.
 func GetSenryusByAuthorPaged(serverID, authorID string, limit, offset int) ([]model.Senryu, error) {
 
@@ -242,43 +224,6 @@ func DeleteSenryuByServer(serverID string) (int64, error) {
 		"count", result.RowsAffected,
 	)
 	return result.RowsAffected, nil
-}
-
-// CountUniqueAuthorsByDateRange returns the number of unique authors who created senryus within [from, to)
-func CountUniqueAuthorsByDateRange(from, to time.Time) (int64, error) {
-
-	var count int64
-	if err := db.DB.Model(&model.Senryu{}).
-		Where("created_at >= ? AND created_at < ?", from, to).
-		Select("COUNT(DISTINCT author_id)").
-		Count(&count).Error; err != nil {
-		logger.Warn("Failed to count unique authors by date range",
-			"error", err,
-			"from", from,
-			"to", to,
-		)
-		return 0, fmt.Errorf("failed to count unique authors by date range: %w", err)
-	}
-
-	return count, nil
-}
-
-// CountSenryuByDateRange returns the count of senryus created within the given time range [from, to)
-func CountSenryuByDateRange(from, to time.Time) (int64, error) {
-
-	var count int64
-	if err := db.DB.Model(&model.Senryu{}).
-		Where("created_at >= ? AND created_at < ?", from, to).
-		Count(&count).Error; err != nil {
-		logger.Warn("Failed to count senryus by date range",
-			"error", err,
-			"from", from,
-			"to", to,
-		)
-		return 0, fmt.Errorf("failed to count senryus by date range: %w", err)
-	}
-
-	return count, nil
 }
 
 // GetServerStats returns statistics for a server

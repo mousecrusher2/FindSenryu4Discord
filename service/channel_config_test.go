@@ -167,7 +167,7 @@ func TestGetGuildChannelSettings_デフォルト設定を返す(t *testing.T) {
 		t.Fatalf("failed to get settings: %v", err)
 	}
 
-	for ct, expected := range ConfigurableChannelTypes() {
+	for ct, expected := range defaultEnabledChannelTypes {
 		got, ok := settings[int(ct)]
 		if !ok {
 			t.Errorf("channel type %d missing from settings", ct)
@@ -258,20 +258,6 @@ func TestToggleChannelTypeEnabled_トグル動作(t *testing.T) {
 	}
 	if !IsChannelTypeEnabled("guild1", discordgo.ChannelTypeGuildText) {
 		t.Error("GuildText should be enabled after second toggle")
-	}
-}
-
-func TestConfigurableChannelTypes_コピーを返す(t *testing.T) {
-	types := ConfigurableChannelTypes()
-	original := len(types)
-
-	// Mutate the returned map
-	types[discordgo.ChannelType(999)] = true
-
-	// Original should be unaffected
-	types2 := ConfigurableChannelTypes()
-	if len(types2) != original {
-		t.Error("ConfigurableChannelTypes should return a fresh copy each time")
 	}
 }
 
