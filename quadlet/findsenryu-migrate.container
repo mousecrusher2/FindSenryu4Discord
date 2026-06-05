@@ -17,7 +17,6 @@ Secret=findsenryu-pguser
 Secret=findsenryu-pgpassword
 Secret=findsenryu-pgsslmode
 Secret=findsenryu-log-level
-Secret=findsenryu-log-format
 UserNS=auto
 
 [Service]

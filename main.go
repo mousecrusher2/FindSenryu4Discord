@@ -174,8 +174,7 @@ func runBot() {
 
 	// Initialize logger
 	logger.Init(logger.Config{
-		Level:  conf.Log.Level,
-		Format: conf.Log.Format,
+		Level: conf.Log.Level,
 	})
 
 	logger.Info("Starting FindSenryu4Discord",
@@ -274,8 +273,7 @@ func runMigrate() {
 	}
 
 	logger.Init(logger.Config{
-		Level:  conf.Log.Level,
-		Format: conf.Log.Format,
+		Level: conf.Log.Level,
 	})
 
 	logger.Info("Starting database migration",

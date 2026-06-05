@@ -22,7 +22,7 @@ func TestJournalPriorityPrefix(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var out bytes.Buffer
-			Init(Config{Level: tt.level, Format: "text", Output: &out})
+			Init(Config{Level: tt.level, Output: &out})
 
 			tt.log(tt.name)
 
@@ -52,7 +52,7 @@ func TestJournalPriorityWriterPrefixesEachLine(t *testing.T) {
 
 func TestJournaldRedundantTimeIsOmitted(t *testing.T) {
 	var out bytes.Buffer
-	Init(Config{Level: "info", Format: "text", Output: &out})
+	Init(Config{Level: "info", Output: &out})
 
 	Info("hello")
 

@@ -20,7 +20,6 @@ const (
 	secretPGPassword     = "findsenryu-pgpassword"
 	secretPGSSLMode      = "findsenryu-pgsslmode"
 	secretLogLevel       = "findsenryu-log-level"
-	secretLogFormat      = "findsenryu-log-format"
 	secretAdminOwnerIDs  = "findsenryu-admin-owner-ids"
 	secretAdminGuildID   = "findsenryu-admin-guild-id"
 )
@@ -56,8 +55,7 @@ type DatabaseConfig struct {
 
 // LogConfig holds logging configuration.
 type LogConfig struct {
-	Level  string
-	Format string
+	Level string
 }
 
 // AdminConfig holds admin-related configuration.
@@ -110,7 +108,6 @@ func LoadMigration() (*Config, error) {
 
 func setDefaults(c *Config) {
 	c.Log.Level = "info"
-	c.Log.Format = "text"
 }
 
 func loadSecrets(c *Config, dir string) error {
@@ -171,9 +168,6 @@ func loadLogSecrets(c *Config, dir string) error {
 	var err error
 
 	if c.Log.Level, err = readOptionalSecretWithDefault(dir, secretLogLevel, c.Log.Level); err != nil {
-		return err
-	}
-	if c.Log.Format, err = readOptionalSecretWithDefault(dir, secretLogFormat, c.Log.Format); err != nil {
 		return err
 	}
 

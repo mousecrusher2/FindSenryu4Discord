@@ -14,7 +14,6 @@ var defaultLogger *slog.Logger
 // Config holds logger configuration
 type Config struct {
 	Level  string // debug, info, warn, error
-	Format string // json, text
 	Output io.Writer
 }
 
@@ -39,12 +38,7 @@ func Init(cfg Config) {
 	}
 
 	priorityOutput := &journalPriorityWriter{output: output}
-	var handler slog.Handler
-	if strings.ToLower(cfg.Format) == "json" {
-		handler = slog.NewJSONHandler(priorityOutput, opts)
-	} else {
-		handler = slog.NewTextHandler(priorityOutput, opts)
-	}
+	var handler slog.Handler = slog.NewTextHandler(priorityOutput, opts)
 	handler = &journalPriorityHandler{
 		handler: handler,
 		writer:  priorityOutput,
@@ -157,7 +151,7 @@ func parseLevel(level string) slog.Level {
 // Logger returns the default logger
 func Logger() *slog.Logger {
 	if defaultLogger == nil {
-		Init(Config{Level: "info", Format: "text"})
+		Init(Config{Level: "info"})
 	}
 	return defaultLogger
 }
