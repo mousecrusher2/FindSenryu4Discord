@@ -12,14 +12,13 @@ import (
 const secretDir = "/run/secrets"
 
 const (
-	secretDiscordToken   = "findsenryu-discord-token"
-	secretDiscordPlaying = "findsenryu-discord-playing"
-	secretPGHost         = "findsenryu-pghost"
-	secretPGDatabase     = "findsenryu-pgdatabase"
-	secretPGUser         = "findsenryu-pguser"
-	secretPGPassword     = "findsenryu-pgpassword"
-	secretPGSSLMode      = "findsenryu-pgsslmode"
-	secretLogLevel       = "findsenryu-log-level"
+	secretDiscordToken = "findsenryu-discord-token"
+	secretPGHost       = "findsenryu-pghost"
+	secretPGDatabase   = "findsenryu-pgdatabase"
+	secretPGUser       = "findsenryu-pguser"
+	secretPGPassword   = "findsenryu-pgpassword"
+	secretPGSSLMode    = "findsenryu-pgsslmode"
+	secretLogLevel     = "findsenryu-log-level"
 )
 
 var (
@@ -36,8 +35,7 @@ type Config struct {
 
 // DiscordConfig holds Discord-related configuration.
 type DiscordConfig struct {
-	Token   string
-	Playing string
+	Token string
 }
 
 // DatabaseConfig holds database configuration.
@@ -120,10 +118,6 @@ func loadDiscordSecrets(c *Config, dir string) error {
 	if c.Discord.Token, err = readSecret(dir, secretDiscordToken); err != nil {
 		return err
 	}
-	c.Discord.Playing, err = readOptionalSecret(dir, secretDiscordPlaying)
-	if err != nil {
-		return err
-	}
 
 	return nil
 }
@@ -170,11 +164,6 @@ func readSecret(dir, name string) (string, error) {
 		return "", fmt.Errorf("required podman secret %q is missing or empty", name)
 	}
 	return value, nil
-}
-
-func readOptionalSecret(dir, name string) (string, error) {
-	value, _, err := readSecretFile(dir, name)
-	return value, err
 }
 
 func readOptionalSecretWithDefault(dir, name, defaultValue string) (string, error) {

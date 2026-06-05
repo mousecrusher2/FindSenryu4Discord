@@ -220,9 +220,6 @@ func runBot() {
 		}
 	}
 
-	// Update game status
-	dg.UpdateGameStatus(1, conf.Discord.Playing)
-
 	logger.Info("Bot is now running. Press CTRL-C to exit.")
 
 	// Wait for termination signal

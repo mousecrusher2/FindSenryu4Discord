@@ -102,7 +102,6 @@ findsenryu-pgsslmode
 主な任意設定:
 
 ```text
-findsenryu-discord-playing
 findsenryu-log-level
 ```
 
