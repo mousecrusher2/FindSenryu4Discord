@@ -17,7 +17,7 @@ func setupSenryuTestDB(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open test database: %v", err)
 	}
-	db.DB.AutoMigrate(&model.Senryu{}, &model.MutedChannel{}, &model.GuildChannelTypeSetting{})
+	db.DB.AutoMigrate(&model.Senryu{}, &model.MutedChannel{})
 	t.Cleanup(func() {
 		db.DB.Close()
 	})

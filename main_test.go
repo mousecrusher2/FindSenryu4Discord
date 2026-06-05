@@ -18,7 +18,7 @@ func setupTestDB(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open test database: %v", err)
 	}
-	if err := db.DB.AutoMigrate(&model.MutedChannel{}, &model.GuildChannelTypeSetting{}).Error; err != nil {
+	if err := db.DB.AutoMigrate(&model.MutedChannel{}).Error; err != nil {
 		t.Fatalf("failed to migrate test database: %v", err)
 	}
 	t.Cleanup(func() {
@@ -26,9 +26,7 @@ func setupTestDB(t *testing.T) {
 	})
 }
 
-func TestIsChannelTypeEnabled_デフォルト有効タイプ(t *testing.T) {
-	setupTestDB(t)
-
+func TestIsSupportedChannelType_対象タイプ(t *testing.T) {
 	enabledTypes := []discordgo.ChannelType{
 		discordgo.ChannelTypeGuildText,
 		discordgo.ChannelTypeGuildVoice,
@@ -39,32 +37,28 @@ func TestIsChannelTypeEnabled_デフォルト有効タイプ(t *testing.T) {
 	}
 
 	for _, ct := range enabledTypes {
-		if !service.IsChannelTypeEnabled("test-guild", ct) {
-			t.Errorf("channel type %d should be enabled by default", ct)
+		if !isSupportedChannelType(ct) {
+			t.Errorf("channel type %d should be supported", ct)
 		}
 	}
 }
 
-func TestIsChannelTypeEnabled_デフォルト無効タイプ(t *testing.T) {
-	setupTestDB(t)
-
+func TestIsSupportedChannelType_対象外タイプ(t *testing.T) {
 	disabledTypes := []discordgo.ChannelType{
 		discordgo.ChannelTypeGuildNews,
 		discordgo.ChannelTypeGuildForum,
 	}
 
 	for _, ct := range disabledTypes {
-		if service.IsChannelTypeEnabled("test-guild", ct) {
-			t.Errorf("channel type %d should be disabled by default", ct)
+		if isSupportedChannelType(ct) {
+			t.Errorf("channel type %d should not be supported", ct)
 		}
 	}
 }
 
-func TestIsChannelTypeEnabled_未知のタイプは無効(t *testing.T) {
-	setupTestDB(t)
-
-	if service.IsChannelTypeEnabled("test-guild", discordgo.ChannelType(999)) {
-		t.Error("unknown channel type should be disabled")
+func TestIsSupportedChannelType_未知のタイプは対象外(t *testing.T) {
+	if isSupportedChannelType(discordgo.ChannelType(999)) {
+		t.Error("unknown channel type should not be supported")
 	}
 }
 

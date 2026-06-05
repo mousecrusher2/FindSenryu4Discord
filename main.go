@@ -24,9 +24,6 @@ import (
 )
 
 var (
-	// adminPermission is used for DefaultMemberPermissions on admin-only commands.
-	adminPermission int64 = discordgo.PermissionAdministrator
-
 	// manageChannelPermission is used for DefaultMemberPermissions on channel management commands.
 	manageChannelPermission int64 = discordgo.PermissionManageChannels
 
@@ -56,11 +53,6 @@ var (
 					Required:    true,
 				},
 			},
-		},
-		{
-			Name:                     "channel",
-			Description:              "チャンネルタイプ別の川柳検出設定を変更します",
-			DefaultMemberPermissions: &adminPermission,
 		},
 		{
 			Name:        "detect",
@@ -117,12 +109,11 @@ var (
 	}
 
 	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-		"mute":    commands.HandleMuteCommand,
-		"unmute":  commands.HandleUnmuteCommand,
-		"rank":    handleRankCommand,
-		"channel": commands.HandleChannelCommand,
-		"delete":  commands.HandleDeleteCommand,
-		"detect":  commands.HandleDetectCommand,
+		"mute":   commands.HandleMuteCommand,
+		"unmute": commands.HandleUnmuteCommand,
+		"rank":   handleRankCommand,
+		"delete": commands.HandleDeleteCommand,
+		"detect": commands.HandleDetectCommand,
 	}
 )
 
@@ -280,16 +271,10 @@ func guildDelete(s *discordgo.Session, g *discordgo.GuildDelete) {
 	if err != nil {
 		logger.Error("Failed to clean up guild data", "error", err, "guild_id", g.ID, "type", "opt-outs")
 	}
-	channelConfigCount, err := service.DeleteChannelConfigByGuild(g.ID)
-	if err != nil {
-		logger.Error("Failed to clean up guild data", "error", err, "guild_id", g.ID, "type", "channel-config")
-	}
-
 	logger.Info("Guild data cleaned up",
 		"guild_id", g.ID,
 		"senryus", senryuCount,
 		"opt_outs", optOutCount,
-		"channel_configs", channelConfigCount,
 	)
 
 }
@@ -317,8 +302,6 @@ func handleComponentInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 		commands.HandleDeleteCancel(s, i)
 	case strings.HasPrefix(customID, commands.DeletePagePrefix):
 		commands.HandleDeletePage(s, i)
-	case strings.HasPrefix(customID, commands.ChannelTogglePrefix):
-		commands.HandleChannelToggle(s, i)
 	}
 }
 
@@ -343,8 +326,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	// Check if this channel type is enabled for the guild
-	if !service.IsChannelTypeEnabled(m.GuildID, ch.Type) {
+	if !isSupportedChannelType(ch.Type) {
 		return
 	}
 
@@ -413,6 +395,20 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 				}
 			}
 		}
+	}
+}
+
+func isSupportedChannelType(channelType discordgo.ChannelType) bool {
+	switch channelType {
+	case discordgo.ChannelTypeGuildText,
+		discordgo.ChannelTypeGuildVoice,
+		discordgo.ChannelTypeGuildStageVoice,
+		discordgo.ChannelTypeGuildNewsThread,
+		discordgo.ChannelTypeGuildPublicThread,
+		discordgo.ChannelTypeGuildPrivateThread:
+		return true
+	default:
+		return false
 	}
 }
 
