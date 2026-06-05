@@ -12,7 +12,6 @@ import (
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/jinzhu/gorm"
 	"github.com/mousecrusher2/FindSenryu4Discord/config"
-	"github.com/mousecrusher2/FindSenryu4Discord/model"
 	"github.com/mousecrusher2/FindSenryu4Discord/pkg/logger"
 
 	// PostgreSQL driver for Gorm
@@ -106,45 +105,4 @@ func Close() error {
 		logger.Info("Database connection closed")
 	}
 	return nil
-}
-
-// IsConnected returns true if database is connected
-func IsConnected() bool {
-	if DB == nil {
-		logger.Error("Database connection check failed: DB is nil")
-		return false
-	}
-	sqlDB := DB.DB()
-	if sqlDB == nil {
-		logger.Error("Database connection check failed: sqlDB is nil")
-		return false
-	}
-	if err := sqlDB.Ping(); err != nil {
-		logger.Error("Database connection ping failed", "error", err)
-		return false
-	}
-	return true
-}
-
-// Stats returns database statistics
-type Stats struct {
-	SenryuCount       int64
-	MutedChannelCount int64
-	OptOutCount       int64
-	IsConnected       bool
-}
-
-// GetStats returns database statistics
-func GetStats() Stats {
-	stats := Stats{
-		IsConnected: IsConnected(),
-	}
-
-	if DB != nil {
-		DB.Model(&model.Senryu{}).Count(&stats.SenryuCount)
-		DB.Model(&model.MutedChannel{}).Count(&stats.MutedChannelCount)
-		DB.Model(&model.DetectionOptOut{}).Count(&stats.OptOutCount)
-	}
-
-	return stats
 }

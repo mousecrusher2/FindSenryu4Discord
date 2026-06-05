@@ -77,22 +77,6 @@
 
 > このチャンネルでBotが正常に動作するか診断します。権限・チャンネルタイプ・ミュート状態などをチェックし、問題があれば対処方法を表示します。
 
-### 管理者コマンド
-
-管理用ギルド (`admin.guild_id`) でのみ使用可能です。`admin.owner_ids` に登録されたユーザーのみ実行できます。
-
-```
-/admin stats
-```
-
-> Botの稼働状況（稼働時間・接続サーバー数・DB統計）を表示します。
-
-```
-/admin guilds
-```
-
-> 接続中の全サーバー一覧を表示します。
-
 ## Self-hosting
 
 OCIR/Quadlet で運用する場合は、先に次の手順を参照してください。
@@ -120,8 +104,6 @@ findsenryu-pgsslmode
 ```text
 findsenryu-discord-playing
 findsenryu-log-level
-findsenryu-admin-owner-ids
-findsenryu-admin-guild-id
 ```
 
 Neon に接続する場合、`findsenryu-pgsslmode` は `verify-full` を設定してください。

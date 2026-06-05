@@ -20,8 +20,6 @@ const (
 	secretPGPassword     = "findsenryu-pgpassword"
 	secretPGSSLMode      = "findsenryu-pgsslmode"
 	secretLogLevel       = "findsenryu-log-level"
-	secretAdminOwnerIDs  = "findsenryu-admin-owner-ids"
-	secretAdminGuildID   = "findsenryu-admin-guild-id"
 )
 
 var (
@@ -34,7 +32,6 @@ type Config struct {
 	Discord  DiscordConfig
 	Database DatabaseConfig
 	Log      LogConfig
-	Admin    AdminConfig
 }
 
 // DiscordConfig holds Discord-related configuration.
@@ -56,12 +53,6 @@ type DatabaseConfig struct {
 // LogConfig holds logging configuration.
 type LogConfig struct {
 	Level string
-}
-
-// AdminConfig holds admin-related configuration.
-type AdminConfig struct {
-	OwnerIDs []string
-	GuildID  string
 }
 
 // Load loads configuration from Podman secret files mounted under /run/secrets.
@@ -120,10 +111,6 @@ func loadSecrets(c *Config, dir string) error {
 	if err := loadLogSecrets(c, dir); err != nil {
 		return err
 	}
-	if err := loadAdminSecrets(c, dir); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -174,19 +161,6 @@ func loadLogSecrets(c *Config, dir string) error {
 	return nil
 }
 
-func loadAdminSecrets(c *Config, dir string) error {
-	var err error
-
-	if c.Admin.OwnerIDs, err = readOptionalListSecret(dir, secretAdminOwnerIDs); err != nil {
-		return err
-	}
-	if c.Admin.GuildID, err = readOptionalSecret(dir, secretAdminGuildID); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func readSecret(dir, name string) (string, error) {
 	value, exists, err := readSecretFile(dir, name)
 	if err != nil {
@@ -214,14 +188,6 @@ func readOptionalSecretWithDefault(dir, name, defaultValue string) (string, erro
 	return value, nil
 }
 
-func readOptionalListSecret(dir, name string) ([]string, error) {
-	value, exists, err := readSecretFile(dir, name)
-	if err != nil || !exists || value == "" {
-		return nil, err
-	}
-	return splitList(value), nil
-}
-
 func readSecretFile(dir, name string) (string, bool, error) {
 	body, err := os.ReadFile(filepath.Join(dir, name))
 	if errors.Is(err, os.ErrNotExist) {
@@ -240,23 +206,7 @@ func validate(c *Config) error {
 	if c.Database.DSN == "" {
 		return errors.New("postgres configuration is required")
 	}
-	if c.Admin.GuildID != "" && len(c.Admin.OwnerIDs) == 0 {
-		fmt.Fprintln(os.Stderr, "<4>WARNING: admin guild id is set but admin owner ids are empty; admin commands will be registered but unusable")
-	}
 	return nil
-}
-
-func splitList(value string) []string {
-	parts := strings.FieldsFunc(value, func(r rune) bool {
-		return r == ',' || r == ' ' || r == '\n' || r == '\t'
-	})
-	out := make([]string, 0, len(parts))
-	for _, part := range parts {
-		if trimmed := strings.TrimSpace(part); trimmed != "" {
-			out = append(out, trimmed)
-		}
-	}
-	return out
 }
 
 func buildPostgresDSN(c DatabaseConfig) string {

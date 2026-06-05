@@ -16,7 +16,6 @@ import (
 	"github.com/mousecrusher2/FindSenryu4Discord/db"
 	"github.com/mousecrusher2/FindSenryu4Discord/model"
 	"github.com/mousecrusher2/FindSenryu4Discord/pkg/logger"
-	"github.com/mousecrusher2/FindSenryu4Discord/pkg/permissions"
 	"github.com/mousecrusher2/FindSenryu4Discord/service"
 
 	"github.com/0x307e/go-haiku"
@@ -25,8 +24,6 @@ import (
 )
 
 var (
-	startTime time.Time
-
 	// adminPermission is used for DefaultMemberPermissions on admin-only commands.
 	adminPermission int64 = discordgo.PermissionAdministrator
 
@@ -131,7 +128,6 @@ var (
 		"delete":  commands.HandleDeleteCommand,
 		"doctor":  commands.HandleDoctorCommand,
 		"detect":  commands.HandleDetectCommand,
-		"admin":   commands.HandleAdminCommand,
 	}
 )
 
@@ -160,8 +156,6 @@ func printUsage(w *os.File) {
 }
 
 func runBot() {
-	startTime = time.Now()
-
 	// Initialize haiku dictionary
 	haiku.UseDict(uni.Dict())
 
@@ -188,8 +182,6 @@ func runBot() {
 		os.Exit(1)
 	}
 
-	commands.SetStartTime(startTime)
-
 	// Gateway Intents
 	intents := discordgo.IntentGuilds |
 		discordgo.IntentGuildMessages |
@@ -210,7 +202,13 @@ func runBot() {
 		os.Exit(1)
 	}
 	logger.Info("Discord session connected")
-	commands.SetSession(dg)
+
+	// Guild-scoped commands are no longer used. Keep Discord's remote state in sync.
+	for _, guild := range dg.State.Guilds {
+		if _, err := dg.ApplicationCommandBulkOverwrite(dg.State.User.ID, guild.ID, []*discordgo.ApplicationCommand{}); err != nil {
+			logger.Error("Failed to clear guild commands", "guild_id", guild.ID, "error", err)
+		}
+	}
 
 	// Register user commands (global)
 	logger.Info("Registering user slash commands...")
@@ -219,19 +217,6 @@ func runBot() {
 			logger.Error("Failed to register command", "command", cmd.Name, "error", err)
 		} else {
 			logger.Info("Registered command", "command", cmd.Name)
-		}
-	}
-
-	// Register admin commands (guild-specific)
-	adminGuildID := permissions.GetAdminGuildID()
-	if adminGuildID != "" {
-		logger.Info("Registering admin slash commands...", "guild_id", adminGuildID)
-		for _, cmd := range commands.AdminCommands() {
-			if _, err := dg.ApplicationCommandCreate(dg.State.User.ID, adminGuildID, cmd); err != nil {
-				logger.Error("Failed to register admin command", "command", cmd.Name, "error", err)
-			} else {
-				logger.Info("Registered admin command", "command", cmd.Name, "guild_id", adminGuildID)
-			}
 		}
 	}
 
@@ -371,11 +356,6 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	// Check if this channel type is enabled for the guild
 	if !service.IsChannelTypeEnabled(m.GuildID, ch.Type) {
-		return
-	}
-
-	// Skip senryu features in admin guild
-	if m.GuildID == permissions.GetAdminGuildID() {
 		return
 	}
 
