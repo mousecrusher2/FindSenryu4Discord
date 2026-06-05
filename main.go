@@ -63,10 +63,6 @@ var (
 			DefaultMemberPermissions: &adminPermission,
 		},
 		{
-			Name:        "doctor",
-			Description: "このチャンネルでBotが正常に動作するか診断します",
-		},
-		{
 			Name:        "detect",
 			Description: "自分の川柳検出のオン/オフを切り替えます",
 			Options: []*discordgo.ApplicationCommandOption{
@@ -126,7 +122,6 @@ var (
 		"rank":    handleRankCommand,
 		"channel": commands.HandleChannelCommand,
 		"delete":  commands.HandleDeleteCommand,
-		"doctor":  commands.HandleDoctorCommand,
 		"detect":  commands.HandleDetectCommand,
 	}
 )
@@ -210,14 +205,12 @@ func runBot() {
 		}
 	}
 
-	// Register user commands (global)
-	logger.Info("Registering user slash commands...")
-	for _, cmd := range userCommands {
-		if _, err := dg.ApplicationCommandCreate(dg.State.User.ID, "", cmd); err != nil {
-			logger.Error("Failed to register command", "command", cmd.Name, "error", err)
-		} else {
-			logger.Info("Registered command", "command", cmd.Name)
-		}
+	// Synchronize user commands (global), removing commands no longer defined here.
+	logger.Info("Synchronizing user slash commands...")
+	if _, err := dg.ApplicationCommandBulkOverwrite(dg.State.User.ID, "", userCommands); err != nil {
+		logger.Error("Failed to synchronize user commands", "error", err)
+	} else {
+		logger.Info("Synchronized user commands", "count", len(userCommands))
 	}
 
 	logger.Info("Bot is now running. Press CTRL-C to exit.")
@@ -231,8 +224,7 @@ func runBot() {
 	logger.Info("Shutting down...")
 
 	// Slash commands are intentionally NOT removed on shutdown.
-	// ApplicationCommandCreate (called on startup) is an upsert, so commands
-	// persist across restarts without the up-to-1-hour global propagation delay.
+	// ApplicationCommandBulkOverwrite synchronizes them on the next startup.
 
 	// Close Discord connection
 	if err := dg.Close(); err != nil {
