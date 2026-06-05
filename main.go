@@ -42,78 +42,12 @@ var (
 			Name:        "rank",
 			Description: "ギルド内で詠んだ回数が多い人のランキングを表示します",
 		},
-		{
-			Name:        "delete",
-			Description: "指定ユーザーの川柳を削除します",
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Type:        discordgo.ApplicationCommandOptionUser,
-					Name:        "user",
-					Description: "削除対象のユーザー",
-					Required:    true,
-				},
-			},
-		},
-		{
-			Name:        "detect",
-			Description: "自分の川柳検出のオン/オフを切り替えます",
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Type:        discordgo.ApplicationCommandOptionSubCommand,
-					Name:        "on",
-					Description: "川柳検出を有効にします",
-				},
-				{
-					Type:        discordgo.ApplicationCommandOptionSubCommand,
-					Name:        "off",
-					Description: "川柳検出を無効にします",
-				},
-				{
-					Type:        discordgo.ApplicationCommandOptionSubCommand,
-					Name:        "status",
-					Description: "現在の川柳検出設定を表示します",
-				},
-				{
-					Type:        discordgo.ApplicationCommandOptionSubCommand,
-					Name:        "ban",
-					Description: "指定ユーザーの川柳検出を無効化します（管理者専用）",
-					Options: []*discordgo.ApplicationCommandOption{
-						{
-							Type:        discordgo.ApplicationCommandOptionUser,
-							Name:        "user",
-							Description: "対象ユーザー",
-							Required:    true,
-						},
-					},
-				},
-				{
-					Type:        discordgo.ApplicationCommandOptionSubCommand,
-					Name:        "unban",
-					Description: "指定ユーザーの川柳検出無効化を解除します（管理者専用）",
-					Options: []*discordgo.ApplicationCommandOption{
-						{
-							Type:        discordgo.ApplicationCommandOptionUser,
-							Name:        "user",
-							Description: "対象ユーザー",
-							Required:    true,
-						},
-					},
-				},
-				{
-					Type:        discordgo.ApplicationCommandOptionSubCommand,
-					Name:        "list",
-					Description: "川柳検出無効化ユーザー一覧を表示します（管理者専用）",
-				},
-			},
-		},
 	}
 
 	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 		"mute":   commands.HandleMuteCommand,
 		"unmute": commands.HandleUnmuteCommand,
 		"rank":   handleRankCommand,
-		"delete": commands.HandleDeleteCommand,
-		"detect": commands.HandleDetectCommand,
 	}
 )
 
@@ -260,41 +194,19 @@ func guildDelete(s *discordgo.Session, g *discordgo.GuildDelete) {
 	if err != nil {
 		logger.Error("Failed to clean up guild data", "error", err, "guild_id", g.ID, "type", "senryus")
 	}
-	optOutCount, err := service.DeleteOptOutByServer(g.ID)
-	if err != nil {
-		logger.Error("Failed to clean up guild data", "error", err, "guild_id", g.ID, "type", "opt-outs")
-	}
 	logger.Info("Guild data cleaned up",
 		"guild_id", g.ID,
 		"senryus", senryuCount,
-		"opt_outs", optOutCount,
 	)
 
 }
 
 func interactionCreate(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	switch i.Type {
-	case discordgo.InteractionApplicationCommand:
-		if h, ok := commandHandlers[i.ApplicationCommandData().Name]; ok {
-			h(s, i)
-		}
-	case discordgo.InteractionMessageComponent:
-		handleComponentInteraction(s, i)
+	if i.Type != discordgo.InteractionApplicationCommand {
+		return
 	}
-}
-
-func handleComponentInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	customID := i.MessageComponentData().CustomID
-
-	switch {
-	case customID == commands.DeleteSelectCustomID:
-		commands.HandleDeleteSelectMenu(s, i)
-	case strings.HasPrefix(customID, commands.DeleteConfirmPrefix):
-		commands.HandleDeleteConfirm(s, i)
-	case customID == commands.DeleteCancelCustomID:
-		commands.HandleDeleteCancel(s, i)
-	case strings.HasPrefix(customID, commands.DeletePagePrefix):
-		commands.HandleDeletePage(s, i)
+	if h, ok := commandHandlers[i.ApplicationCommandData().Name]; ok {
+		h(s, i)
 	}
 }
 
@@ -329,9 +241,6 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	if !service.IsMute(m.ChannelID) && !isParentChannelMuted(ch) {
 		if m.Author.ID != s.State.User.ID {
-			if service.IsDetectionOptedOut(m.GuildID, m.Author.ID) {
-				return
-			}
 			if containsDiscordTokens(m.Content) {
 				return
 			}

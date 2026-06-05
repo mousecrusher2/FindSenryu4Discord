@@ -19,10 +19,3 @@ type MutedChannel struct {
 	ChannelID string `gorm:"primaryKey"`
 	GuildID   string `gorm:"column:guild_id;index"`
 }
-
-// DetectionOptOut is struct of per-user detection opt-out.
-type DetectionOptOut struct {
-	ServerID string `gorm:"primaryKey"`
-	UserID   string `gorm:"primaryKey"`
-	SetBy    string `gorm:"column:set_by;not null;default:'self'"`
-}

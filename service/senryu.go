@@ -128,60 +128,6 @@ func GetRanking(serverID string) ([]RankResult, error) {
 	return results, nil
 }
 
-// GetSenryusByAuthorPaged returns a page of senryus by author, ordered by ID desc.
-func GetSenryusByAuthorPaged(serverID, authorID string, limit, offset int) ([]model.Senryu, error) {
-
-	var senryus []model.Senryu
-	if err := db.DB.Where("server_id = ? AND author_id = ?", serverID, authorID).
-		Order("id DESC").Limit(limit).Offset(offset).Find(&senryus).Error; err != nil {
-		logger.Warn("Failed to get senryus by author paged",
-			"error", err,
-			"server_id", serverID,
-			"author_id", authorID,
-		)
-		return nil, fmt.Errorf("failed to get senryus by author paged: %w", err)
-	}
-
-	return senryus, nil
-}
-
-// CountSenryusByAuthor returns the total number of senryus by author in a server.
-func CountSenryusByAuthor(serverID, authorID string) (int, error) {
-
-	var count int
-	if err := db.DB.Model(&model.Senryu{}).
-		Where("server_id = ? AND author_id = ?", serverID, authorID).
-		Count(&count).Error; err != nil {
-		logger.Warn("Failed to count senryus by author",
-			"error", err,
-			"server_id", serverID,
-			"author_id", authorID,
-		)
-		return 0, fmt.Errorf("failed to count senryus by author: %w", err)
-	}
-
-	return count, nil
-}
-
-// GetSenryuByID returns a senryu by ID within a server
-func GetSenryuByID(id int, serverID string) (*model.Senryu, error) {
-
-	var s model.Senryu
-	if err := db.DB.Where("id = ? AND server_id = ?", id, serverID).First(&s).Error; err != nil {
-		if gorm.IsRecordNotFoundError(err) {
-			return nil, ErrSenryuNotFound
-		}
-		logger.Warn("Failed to get senryu by ID",
-			"error", err,
-			"id", id,
-			"server_id", serverID,
-		)
-		return nil, fmt.Errorf("failed to get senryu by ID: %w", err)
-	}
-
-	return &s, nil
-}
-
 // DeleteSenryu deletes a senryu by ID within a server
 func DeleteSenryu(id int, serverID string) error {
 

@@ -17,7 +17,7 @@ func setupSenryuTestDB(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open test database: %v", err)
 	}
-	db.DB.AutoMigrate(&model.Senryu{}, &model.MutedChannel{})
+	db.DB.AutoMigrate(&model.Senryu{})
 	t.Cleanup(func() {
 		db.DB.Close()
 	})
@@ -82,9 +82,12 @@ func TestDeleteSenryu_削除できる(t *testing.T) {
 		t.Fatalf("DeleteSenryu failed: %v", err)
 	}
 
-	_, err = GetSenryuByID(created.ID, "server1")
-	if err != ErrSenryuNotFound {
-		t.Errorf("expected ErrSenryuNotFound, got %v", err)
+	var count int
+	if err := db.DB.Model(&model.Senryu{}).Where("id = ? AND server_id = ?", created.ID, "server1").Count(&count).Error; err != nil {
+		t.Fatalf("failed to verify deletion: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("deleted senryu count = %d, want 0", count)
 	}
 }
 
@@ -137,162 +140,6 @@ func seedSenryus(t *testing.T, serverID, authorID string, count int) {
 		if err := db.DB.Create(&s).Error; err != nil {
 			t.Fatalf("failed to seed senryu: %v", err)
 		}
-	}
-}
-
-func TestGetSenryusByAuthorPaged_ページネーション(t *testing.T) {
-	setupSenryuTestDB(t)
-	seedSenryus(t, "guild1", "user1", 30)
-
-	// 1ページ目（25件）
-	page1, err := GetSenryusByAuthorPaged("guild1", "user1", 25, 0)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(page1) != 25 {
-		t.Errorf("expected 25 senryus, got %d", len(page1))
-	}
-
-	// 2ページ目（残り5件）
-	page2, err := GetSenryusByAuthorPaged("guild1", "user1", 25, 25)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(page2) != 5 {
-		t.Errorf("expected 5 senryus, got %d", len(page2))
-	}
-
-	// IDの重複がないこと
-	ids := make(map[int]bool)
-	for _, s := range page1 {
-		ids[s.ID] = true
-	}
-	for _, s := range page2 {
-		if ids[s.ID] {
-			t.Errorf("duplicate senryu ID %d across pages", s.ID)
-		}
-	}
-}
-
-func TestGetSenryusByAuthorPaged_降順(t *testing.T) {
-	setupSenryuTestDB(t)
-	seedSenryus(t, "guild1", "user1", 5)
-
-	results, err := GetSenryusByAuthorPaged("guild1", "user1", 25, 0)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	for i := 1; i < len(results); i++ {
-		if results[i].ID >= results[i-1].ID {
-			t.Errorf("expected descending order: ID %d >= %d", results[i].ID, results[i-1].ID)
-		}
-	}
-}
-
-func TestGetSenryusByAuthorPaged_該当なし(t *testing.T) {
-	setupSenryuTestDB(t)
-
-	results, err := GetSenryusByAuthorPaged("guild1", "user1", 25, 0)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(results) != 0 {
-		t.Errorf("expected 0 senryus, got %d", len(results))
-	}
-}
-
-func TestGetSenryusByAuthorPaged_別サーバーの川柳は含まない(t *testing.T) {
-	setupSenryuTestDB(t)
-	seedSenryus(t, "guild1", "user1", 5)
-	seedSenryus(t, "guild2", "user1", 3)
-
-	results, err := GetSenryusByAuthorPaged("guild1", "user1", 25, 0)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(results) != 5 {
-		t.Errorf("expected 5 senryus for guild1, got %d", len(results))
-	}
-}
-
-func TestGetSenryusByAuthorPaged_別ユーザーの川柳は含まない(t *testing.T) {
-	setupSenryuTestDB(t)
-	seedSenryus(t, "guild1", "user1", 5)
-	seedSenryus(t, "guild1", "user2", 3)
-
-	results, err := GetSenryusByAuthorPaged("guild1", "user1", 25, 0)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(results) != 5 {
-		t.Errorf("expected 5 senryus for user1, got %d", len(results))
-	}
-}
-
-func TestGetSenryusByAuthorPaged_offset超過で空(t *testing.T) {
-	setupSenryuTestDB(t)
-	seedSenryus(t, "guild1", "user1", 3)
-
-	results, err := GetSenryusByAuthorPaged("guild1", "user1", 25, 100)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(results) != 0 {
-		t.Errorf("expected 0 senryus with large offset, got %d", len(results))
-	}
-}
-
-func TestCountSenryusByAuthor_正常(t *testing.T) {
-	setupSenryuTestDB(t)
-	seedSenryus(t, "guild1", "user1", 30)
-
-	count, err := CountSenryusByAuthor("guild1", "user1")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if count != 30 {
-		t.Errorf("expected 30, got %d", count)
-	}
-}
-
-func TestCountSenryusByAuthor_該当なし(t *testing.T) {
-	setupSenryuTestDB(t)
-
-	count, err := CountSenryusByAuthor("guild1", "user1")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if count != 0 {
-		t.Errorf("expected 0, got %d", count)
-	}
-}
-
-func TestCountSenryusByAuthor_別サーバーは含まない(t *testing.T) {
-	setupSenryuTestDB(t)
-	seedSenryus(t, "guild1", "user1", 5)
-	seedSenryus(t, "guild2", "user1", 3)
-
-	count, err := CountSenryusByAuthor("guild1", "user1")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if count != 5 {
-		t.Errorf("expected 5, got %d", count)
-	}
-}
-
-func TestCountSenryusByAuthor_別ユーザーは含まない(t *testing.T) {
-	setupSenryuTestDB(t)
-	seedSenryus(t, "guild1", "user1", 5)
-	seedSenryus(t, "guild1", "user2", 3)
-
-	count, err := CountSenryusByAuthor("guild1", "user1")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if count != 5 {
-		t.Errorf("expected 5, got %d", count)
 	}
 }
 
