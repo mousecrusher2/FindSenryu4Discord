@@ -3,7 +3,6 @@ package service
 import (
 	"errors"
 	"fmt"
-	"sync"
 
 	"github.com/mousecrusher2/FindSenryu4Discord/db"
 	"github.com/mousecrusher2/FindSenryu4Discord/model"
@@ -17,36 +16,13 @@ const (
 )
 
 var (
-	ErrOptOutFailed = errors.New("failed to opt out detection")
-	ErrOptInFailed  = errors.New("failed to opt in detection")
-	ErrAdminBanned  = errors.New("user is banned by admin")
+	ErrAdminBanned = errors.New("user is banned by admin")
 )
-
-// optOutCache caches detection opt-out status in memory.
-// Key: "serverID:userID", Value: true (opted out).
-// Cache miss triggers a DB lookup and stores the result.
-var optOutCache sync.Map
-
-// adminBanCache caches admin-ban status in memory.
-// Key: "serverID:userID", Value: true (admin banned).
-var adminBanCache sync.Map
-
-func optOutCacheKey(serverID, userID string) string {
-	return serverID + ":" + userID
-}
 
 // IsDetectionOptedOut checks if a user has opted out of detection in a server
 func IsDetectionOptedOut(serverID, userID string) bool {
-	key := optOutCacheKey(serverID, userID)
-	if cached, ok := optOutCache.Load(key); ok {
-		return cached.(bool)
-	}
-
-	// Cache miss — load from DB
 	var optOut model.DetectionOptOut
-	isOptedOut := db.DB.Where(&model.DetectionOptOut{ServerID: serverID, UserID: userID}).First(&optOut).Error == nil
-	optOutCache.Store(key, isOptedOut)
-	return isOptedOut
+	return db.DB.Where(&model.DetectionOptOut{ServerID: serverID, UserID: userID}).First(&optOut).Error == nil
 }
 
 // OptOutDetection opts a user out of detection in a server
@@ -62,9 +38,6 @@ func OptOutDetection(serverID, userID, setBy string) error {
 		return fmt.Errorf("failed to opt out detection: %w", err)
 	}
 
-	key := optOutCacheKey(serverID, userID)
-	optOutCache.Store(key, true)
-	adminBanCache.Store(key, setBy == SetByAdmin)
 	logger.Info("User opted out of detection", "server_id", serverID, "user_id", userID, "set_by", setBy)
 	return nil
 }
@@ -80,18 +53,6 @@ func DeleteOptOutByServer(serverID string) (int64, error) {
 		)
 		return 0, fmt.Errorf("failed to delete opt-outs by server: %w", result.Error)
 	}
-
-	// Invalidate all cache entries for this server by clearing matching keys.
-	// This is acceptable because cache misses are cheap and server deletion is rare.
-	prefix := serverID + ":"
-	optOutCache.Range(func(key, _ any) bool {
-		k := key.(string)
-		if len(k) > len(serverID) && k[:len(prefix)] == prefix {
-			optOutCache.Delete(key)
-			adminBanCache.Delete(key)
-		}
-		return true
-	})
 
 	logger.Info("Opt-outs deleted by server",
 		"server_id", serverID,
@@ -120,9 +81,6 @@ func OptInDetection(serverID, userID string, force bool) error {
 		return fmt.Errorf("failed to opt in detection: %w", err)
 	}
 
-	key := optOutCacheKey(serverID, userID)
-	optOutCache.Store(key, false)
-	adminBanCache.Store(key, false)
 	logger.Info("User opted in to detection", "server_id", serverID, "user_id", userID, "force", force)
 	return nil
 }
@@ -144,28 +102,17 @@ func AdminBanDetection(serverID, userID string) error {
 		return fmt.Errorf("failed to ban user: %w", err)
 	}
 
-	optOutCache.Store(optOutCacheKey(serverID, userID), true)
-	adminBanCache.Store(optOutCacheKey(serverID, userID), true)
 	logger.Info("Admin banned user from detection", "server_id", serverID, "user_id", userID)
 	return nil
 }
 
 // IsAdminBanned checks if a user is banned from detection by an admin.
-// Results are cached to avoid repeated DB queries.
 func IsAdminBanned(serverID, userID string) bool {
-	key := optOutCacheKey(serverID, userID)
-	if cached, ok := adminBanCache.Load(key); ok {
-		return cached.(bool)
-	}
-
-	// Cache miss — load from DB
 	var optOut model.DetectionOptOut
-	banned := false
 	if err := db.DB.Where(&model.DetectionOptOut{ServerID: serverID, UserID: userID}).First(&optOut).Error; err == nil {
-		banned = optOut.SetBy == SetByAdmin
+		return optOut.SetBy == SetByAdmin
 	}
-	adminBanCache.Store(key, banned)
-	return banned
+	return false
 }
 
 // ListOptOutsByServer returns all opt-out records for a server

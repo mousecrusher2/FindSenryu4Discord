@@ -9,14 +9,6 @@
 
 このリポジトリは [u16-io/FindSenryu4Discord](https://github.com/u16-io/FindSenryu4Discord) の fork です。
 
-## Invite
-
-<p align="center">
-  <a href="https://discordapp.com/api/oauth2/authorize?client_id=480281065588785162&permissions=379904&scope=bot">
-    <img width="400" src="./.github/img/discord-logo.png">
-  </a>
-</p>
-
 ## Commands
 
 ### メッセージコマンド

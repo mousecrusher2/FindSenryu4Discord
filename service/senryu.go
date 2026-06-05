@@ -13,7 +13,6 @@ import (
 
 var (
 	ErrSenryuNotFound = errors.New("senryu not found")
-	ErrDatabaseError  = errors.New("database error")
 )
 
 // CreateSenryu creates a new senryu record

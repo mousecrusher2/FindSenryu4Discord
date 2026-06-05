@@ -189,14 +189,7 @@ func runBot() {
 	}
 	logger.Info("Discord session connected")
 
-	// Guild-scoped commands are no longer used. Keep Discord's remote state in sync.
-	for _, guild := range dg.State.Guilds {
-		if _, err := dg.ApplicationCommandBulkOverwrite(dg.State.User.ID, guild.ID, []*discordgo.ApplicationCommand{}); err != nil {
-			logger.Error("Failed to clear guild commands", "guild_id", guild.ID, "error", err)
-		}
-	}
-
-	// Synchronize user commands (global), removing commands no longer defined here.
+	// Synchronize user commands (global).
 	logger.Info("Synchronizing user slash commands...")
 	if _, err := dg.ApplicationCommandBulkOverwrite(dg.State.User.ID, "", userCommands); err != nil {
 		logger.Error("Failed to synchronize user commands", "error", err)

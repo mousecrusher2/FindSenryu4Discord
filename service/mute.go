@@ -1,36 +1,17 @@
 package service
 
 import (
-	"errors"
 	"fmt"
-	"sync"
 
 	"github.com/mousecrusher2/FindSenryu4Discord/db"
 	"github.com/mousecrusher2/FindSenryu4Discord/model"
 	"github.com/mousecrusher2/FindSenryu4Discord/pkg/logger"
 )
 
-var (
-	ErrMuteFailed   = errors.New("failed to mute channel")
-	ErrUnmuteFailed = errors.New("failed to unmute channel")
-)
-
-// muteCache caches muted channel IDs in memory.
-// Key: channelID, Value: true (muted).
-// Cache miss triggers a DB lookup and stores the result.
-var muteCache sync.Map
-
 // IsMute checks if a channel is muted
 func IsMute(id string) bool {
-	if cached, ok := muteCache.Load(id); ok {
-		return cached.(bool)
-	}
-
-	// Cache miss — load from DB
 	var muted model.MutedChannel
-	isMuted := db.DB.Where(&model.MutedChannel{ChannelID: id}).First(&muted).Error == nil
-	muteCache.Store(id, isMuted)
-	return isMuted
+	return db.DB.Where(&model.MutedChannel{ChannelID: id}).First(&muted).Error == nil
 }
 
 // ToMute mutes a channel
@@ -48,7 +29,6 @@ func ToMute(channelID, guildID string) error {
 		return fmt.Errorf("failed to mute channel: %w", err)
 	}
 
-	muteCache.Store(channelID, true)
 	logger.Info("Channel muted", "channel_id", channelID, "guild_id", guildID)
 	return nil
 }
@@ -64,7 +44,6 @@ func ToUnMute(id string) error {
 		return fmt.Errorf("failed to unmute channel: %w", err)
 	}
 
-	muteCache.Store(id, false)
 	logger.Info("Channel unmuted", "channel_id", id)
 	return nil
 }

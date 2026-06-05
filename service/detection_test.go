@@ -17,15 +17,6 @@ func setupDetectionTestDB(t *testing.T) {
 		t.Fatalf("failed to open test database: %v", err)
 	}
 	db.DB.AutoMigrate(&model.DetectionOptOut{})
-	// Clear in-memory caches for test isolation
-	optOutCache.Range(func(key, _ interface{}) bool {
-		optOutCache.Delete(key)
-		return true
-	})
-	adminBanCache.Range(func(key, _ interface{}) bool {
-		adminBanCache.Delete(key)
-		return true
-	})
 	t.Cleanup(func() {
 		db.DB.Close()
 	})
@@ -269,7 +260,7 @@ func TestDeleteOptOutByServer_adminBan含む全削除(t *testing.T) {
 	}
 }
 
-func TestOptOutDetection_キャッシュが更新されること(t *testing.T) {
+func TestOptOutDetection_状態が反映されること(t *testing.T) {
 	setupDetectionTestDB(t)
 
 	// Initially not opted out
@@ -281,13 +272,12 @@ func TestOptOutDetection_キャッシュが更新されること(t *testing.T) {
 		t.Fatalf("OptOutDetection failed: %v", err)
 	}
 
-	// Cache should reflect opt-out
 	if !IsDetectionOptedOut("server1", "user1") {
 		t.Error("user should be opted out after OptOutDetection")
 	}
 }
 
-func TestOptInDetection_キャッシュが更新されること(t *testing.T) {
+func TestOptInDetection_状態が反映されること(t *testing.T) {
 	setupDetectionTestDB(t)
 
 	if err := OptOutDetection("server1", "user1", SetBySelf); err != nil {
@@ -298,20 +288,18 @@ func TestOptInDetection_キャッシュが更新されること(t *testing.T) {
 		t.Fatalf("OptInDetection failed: %v", err)
 	}
 
-	// Cache should reflect opt-in
 	if IsDetectionOptedOut("server1", "user1") {
 		t.Error("user should not be opted out after OptInDetection")
 	}
 }
 
-func TestAdminBanDetection_キャッシュが更新されること(t *testing.T) {
+func TestAdminBanDetection_状態が反映されること(t *testing.T) {
 	setupDetectionTestDB(t)
 
 	if err := AdminBanDetection("server1", "user1"); err != nil {
 		t.Fatalf("AdminBanDetection failed: %v", err)
 	}
 
-	// Cache should reflect opt-out
 	if !IsDetectionOptedOut("server1", "user1") {
 		t.Error("user should be opted out after AdminBanDetection")
 	}
