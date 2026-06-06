@@ -32,18 +32,3 @@ func ToMute(channelID, guildID string) error {
 	logger.Info("Channel muted", "channel_id", channelID, "guild_id", guildID)
 	return nil
 }
-
-// ToUnMute unmutes a channel
-func ToUnMute(id string) error {
-
-	if err := db.DB.Where(&model.MutedChannel{ChannelID: id}).Delete(&model.MutedChannel{}).Error; err != nil {
-		logger.Error("Failed to unmute channel",
-			"error", err,
-			"channel_id", id,
-		)
-		return fmt.Errorf("failed to unmute channel: %w", err)
-	}
-
-	logger.Info("Channel unmuted", "channel_id", id)
-	return nil
-}

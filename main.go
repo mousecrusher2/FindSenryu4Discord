@@ -11,7 +11,6 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/mousecrusher2/FindSenryu4Discord/commands"
 	"github.com/mousecrusher2/FindSenryu4Discord/config"
 	"github.com/mousecrusher2/FindSenryu4Discord/db"
 	"github.com/mousecrusher2/FindSenryu4Discord/model"
@@ -24,20 +23,7 @@ import (
 )
 
 var (
-	// manageChannelPermission is used for DefaultMemberPermissions on channel management commands.
-	manageChannelPermission int64 = discordgo.PermissionManageChannels
-
 	userCommands = []*discordgo.ApplicationCommand{
-		{
-			Name:                     "mute",
-			Description:              "このチャンネルでの川柳検出をミュートします",
-			DefaultMemberPermissions: &manageChannelPermission,
-		},
-		{
-			Name:                     "unmute",
-			Description:              "このチャンネルでの川柳検出のミュートを解除します",
-			DefaultMemberPermissions: &manageChannelPermission,
-		},
 		{
 			Name:        "rank",
 			Description: "ギルド内で詠んだ回数が多い人のランキングを表示します",
@@ -45,9 +31,7 @@ var (
 	}
 
 	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-		"mute":   commands.HandleMuteCommand,
-		"unmute": commands.HandleUnmuteCommand,
-		"rank":   handleRankCommand,
+		"rank": handleRankCommand,
 	}
 )
 
