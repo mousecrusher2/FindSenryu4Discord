@@ -171,7 +171,6 @@ sudo podman run --rm \
   --pull=always \
   --authfile=/etc/containers/auth/findsenryu4discord.json \
   --userns=auto \
-  --log-driver=passthrough \
   --secret=findsenryu-pghost,target=pg-host \
   --secret=findsenryu-pgdatabase,target=pg-database \
   --secret=findsenryu-pguser,target=pg-user \
@@ -189,7 +188,6 @@ sudo podman run --rm \
   --pull=always \
   --authfile=/etc/containers/auth/findsenryu4discord.json \
   --userns=auto \
-  --log-driver=passthrough \
   --secret=findsenryu-discord-token,target=discord-token \
   --secret=findsenryu-pghost,target=pg-host \
   --secret=findsenryu-pgdatabase,target=pg-database \
