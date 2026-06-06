@@ -115,7 +115,6 @@ func runBot() {
 	dg.Identify.Intents = intents
 	dg.AddHandler(messageCreate)
 	dg.AddHandler(interactionCreate)
-	dg.AddHandler(guildDelete)
 
 	if err := dg.Open(); err != nil {
 		logger.Error("Failed to open Discord connection", "error", err)
@@ -184,21 +183,6 @@ func runMigrate() {
 	}
 
 	logger.Info("Migration completed successfully")
-}
-
-func guildDelete(s *discordgo.Session, g *discordgo.GuildDelete) {
-	logger.Info("Left guild", "id", g.ID)
-
-	// Clean up guild data
-	senryuCount, err := service.DeleteSenryuByServer(g.ID)
-	if err != nil {
-		logger.Error("Failed to clean up guild data", "error", err, "guild_id", g.ID, "type", "senryus")
-	}
-	logger.Info("Guild data cleaned up",
-		"guild_id", g.ID,
-		"senryus", senryuCount,
-	)
-
 }
 
 func interactionCreate(s *discordgo.Session, i *discordgo.InteractionCreate) {

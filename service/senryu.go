@@ -152,25 +152,6 @@ func DeleteSenryu(id int, serverID string) error {
 	return nil
 }
 
-// DeleteSenryuByServer deletes all senryus belonging to a server
-func DeleteSenryuByServer(serverID string) (int64, error) {
-
-	result := db.DB.Where("server_id = ?", serverID).Delete(&model.Senryu{})
-	if result.Error != nil {
-		logger.Error("Failed to delete senryus by server",
-			"error", result.Error,
-			"server_id", serverID,
-		)
-		return 0, fmt.Errorf("failed to delete senryus by server: %w", result.Error)
-	}
-
-	logger.Info("Senryus deleted by server",
-		"server_id", serverID,
-		"count", result.RowsAffected,
-	)
-	return result.RowsAffected, nil
-}
-
 // GetServerStats returns statistics for a server
 type ServerStats struct {
 	TotalSenryus  int64

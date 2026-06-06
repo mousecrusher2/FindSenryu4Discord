@@ -5,8 +5,8 @@ import "time"
 // Senryu is struct of senryu.
 type Senryu struct {
 	ID        int       `gorm:"primaryKey;autoIncrement"`
-	ServerID  string    `gorm:"column:server_id;index"`
-	AuthorID  string    `gorm:"column:author_id;index"`
+	ServerID  string    `gorm:"column:server_id"`
+	AuthorID  string    `gorm:"column:author_id"`
 	Kamigo    string    `gorm:"column:kamigo"`
 	Nakasichi string    `gorm:"column:nakasichi"`
 	Simogo    string    `gorm:"column:simogo"`
@@ -17,5 +17,5 @@ type Senryu struct {
 // MutedChannel is struct of muted channel.
 type MutedChannel struct {
 	ChannelID string `gorm:"primaryKey"`
-	GuildID   string `gorm:"column:guild_id;index"`
+	GuildID   string `gorm:"column:guild_id"`
 }
