@@ -8,13 +8,13 @@ ContainerName=findsenryu-app
 Image=findsenryu.image
 LogDriver=passthrough
 StopTimeout=60
-Secret=findsenryu-discord-token
-Secret=findsenryu-pghost
-Secret=findsenryu-pgdatabase
-Secret=findsenryu-pguser
-Secret=findsenryu-pgpassword
-Secret=findsenryu-pgsslmode
-Secret=findsenryu-log-level
+Secret=findsenryu-discord-token,target=discord-token
+Secret=findsenryu-pghost,target=pg-host
+Secret=findsenryu-pgdatabase,target=pg-database
+Secret=findsenryu-pguser,target=pg-user
+Secret=findsenryu-pgpassword,target=pg-password
+Secret=findsenryu-pgsslmode,target=pg-sslmode
+Secret=findsenryu-log-level,target=log-level
 UserNS=auto
 
 [Service]

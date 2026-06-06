@@ -12,13 +12,13 @@ import (
 const secretDir = "/run/secrets"
 
 const (
-	secretDiscordToken = "findsenryu-discord-token"
-	secretPGHost       = "findsenryu-pghost"
-	secretPGDatabase   = "findsenryu-pgdatabase"
-	secretPGUser       = "findsenryu-pguser"
-	secretPGPassword   = "findsenryu-pgpassword"
-	secretPGSSLMode    = "findsenryu-pgsslmode"
-	secretLogLevel     = "findsenryu-log-level"
+	secretDiscordToken = "discord-token"
+	secretPGHost       = "pg-host"
+	secretPGDatabase   = "pg-database"
+	secretPGUser       = "pg-user"
+	secretPGPassword   = "pg-password"
+	secretPGSSLMode    = "pg-sslmode"
+	secretLogLevel     = "log-level"
 )
 
 var (
@@ -161,7 +161,7 @@ func readSecret(dir, name string) (string, error) {
 		return "", err
 	}
 	if !exists || value == "" {
-		return "", fmt.Errorf("required podman secret %q is missing or empty", name)
+		return "", fmt.Errorf("required secret file %q is missing or empty", name)
 	}
 	return value, nil
 }
@@ -183,7 +183,7 @@ func readSecretFile(dir, name string) (string, bool, error) {
 		return "", false, nil
 	}
 	if err != nil {
-		return "", false, fmt.Errorf("failed to read podman secret %q: %w", name, err)
+		return "", false, fmt.Errorf("failed to read secret file %q: %w", name, err)
 	}
 	return strings.TrimSpace(string(body)), true, nil
 }
