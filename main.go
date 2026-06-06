@@ -238,62 +238,47 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	if !service.IsMute(m.ChannelID) && !isParentChannelMuted(ch) {
-		if m.Author.ID != s.State.User.ID {
-			if containsDiscordTokens(m.Content) {
-				return
-			}
-			content := m.Content
-			spoiler := containsSpoiler(content)
-			if spoiler {
-				content = stripSpoilerMarkers(content)
-			}
-			content = stripCodeBlocks(content)
-			if !isJapaneseRich(content) {
-				return
-			}
-			h := findHaikuSafe(content, []int{5, 7, 5})
-			if len(h) != 0 && !haikuSpansNewline(content, h[0]) {
-				senryu := strings.Split(h[0], " ")
-				created, err := service.CreateSenryu(
-					model.Senryu{
-						ServerID:  m.GuildID,
-						AuthorID:  m.Author.ID,
-						Kamigo:    senryu[0],
-						Nakasichi: senryu[1],
-						Simogo:    senryu[2],
-						Spoiler:   &spoiler,
-					},
-				)
-				if err != nil {
-					logger.Error("Failed to create senryu", "error", err)
-					return
-				}
-				replyText := fmt.Sprintf("川柳を検出しました！\n「%s」", h[0])
-				if spoiler {
-					replyText = fmt.Sprintf("川柳を検出しました！\n||「%s」||", h[0])
-				}
-				if _, err := s.ChannelMessageSendReply(
-					m.ChannelID,
-					replyText,
-					m.Reference(),
-				); err != nil {
-					logger.Warn("Failed to send senryu reply", "error", err, "channel_id", m.ChannelID)
-					// 返信に失敗した場合、保存した川柳を削除して整合性を保つ
-					if delErr := service.DeleteSenryu(int(created.ID), m.GuildID); delErr != nil {
-						logger.Error("Failed to rollback senryu after reply failure", "error", delErr, "senryu_id", created.ID)
-					} else {
-						logger.Info("Rolled back senryu after reply failure", "senryu_id", created.ID, "channel_id", m.ChannelID)
-					}
-					// Bot権限不足エラーの場合、該当チャンネルを自動ミュート
-					if isBotPermissionError(err) {
-						if muteErr := service.ToMute(m.ChannelID, m.GuildID); muteErr != nil {
-							logger.Error("Failed to auto-mute channel after permission error", "error", muteErr, "channel_id", m.ChannelID)
-						} else {
-							logger.Warn("Auto-muted channel due to missing Bot permissions", "channel_id", m.ChannelID, "server_id", m.GuildID)
-						}
-					}
-				}
+	content := m.Content
+	spoiler := containsSpoiler(content)
+	if spoiler {
+		content = stripSpoilerMarkers(content)
+	}
+	content = stripCodeBlocks(content)
+	if !isJapaneseRich(content) {
+		return
+	}
+	h := findHaikuSafe(content, []int{5, 7, 5})
+	if len(h) != 0 && !haikuSpansNewline(content, h[0]) {
+		senryu := strings.Split(h[0], " ")
+		created, err := service.CreateSenryu(
+			model.Senryu{
+				ServerID:  m.GuildID,
+				AuthorID:  m.Author.ID,
+				Kamigo:    senryu[0],
+				Nakasichi: senryu[1],
+				Simogo:    senryu[2],
+				Spoiler:   &spoiler,
+			},
+		)
+		if err != nil {
+			logger.Error("Failed to create senryu", "error", err)
+			return
+		}
+		replyText := fmt.Sprintf("川柳を検出しました！\n「%s」", h[0])
+		if spoiler {
+			replyText = fmt.Sprintf("川柳を検出しました！\n||「%s」||", h[0])
+		}
+		if _, err := s.ChannelMessageSendReply(
+			m.ChannelID,
+			replyText,
+			m.Reference(),
+		); err != nil {
+			logger.Warn("Failed to send senryu reply", "error", err, "channel_id", m.ChannelID)
+			// 返信に失敗した場合、保存した川柳を削除して整合性を保つ
+			if delErr := service.DeleteSenryu(int(created.ID), m.GuildID); delErr != nil {
+				logger.Error("Failed to rollback senryu after reply failure", "error", delErr, "senryu_id", created.ID)
+			} else {
+				logger.Info("Rolled back senryu after reply failure", "senryu_id", created.ID, "channel_id", m.ChannelID)
 			}
 		}
 	}
@@ -463,14 +448,6 @@ func resolveDisplayName(member *discordgo.Member) string {
 	return member.User.Username
 }
 
-// isParentChannelMuted checks if the parent channel of a thread is muted.
-func isParentChannelMuted(ch *discordgo.Channel) bool {
-	if ch.ParentID == "" {
-		return false
-	}
-	return service.IsMute(ch.ParentID)
-}
-
 func sliceUnique(target []string) (unique []string) {
 	m := map[string]bool{}
 	for _, v := range target {
@@ -480,21 +457,6 @@ func sliceUnique(target []string) (unique []string) {
 		}
 	}
 	return unique
-}
-
-// containsDiscordTokens reports whether s contains Discord-specific tokens
-// (mentions, channels, roles, custom emoji, URLs) that should exclude
-// the message from haiku detection.
-var reDiscordTokens = regexp.MustCompile(
-	`<@!?\d+>` + // user mentions
-		`|<#\d+>` + // channel mentions
-		`|<@&\d+>` + // role mentions
-		`|<a?:\w+:\d+>` + // custom emoji
-		`|https?://\S+`, // URLs
-)
-
-func containsDiscordTokens(s string) bool {
-	return reDiscordTokens.MatchString(s)
 }
 
 // findHaikuSafe wraps haiku.Find with recover to prevent panics from crashing the bot.
@@ -559,21 +521,6 @@ func isJapaneseRich(s string) bool {
 		return false
 	}
 	return float64(jp)/float64(total) >= japaneseCharRatioThreshold
-}
-
-// isBotPermissionError returns true if the error is a Discord API error
-// caused by missing Bot permissions on the channel.
-func isBotPermissionError(err error) bool {
-	var restErr *discordgo.RESTError
-	if errors.As(err, &restErr) && restErr.Message != nil {
-		switch restErr.Message.Code {
-		case 50001, // Missing Access
-			50013,  // Missing Permissions
-			160002: // Cannot reply without permission to read message history
-			return true
-		}
-	}
-	return false
 }
 
 func getWriters(senryus []model.Senryu, guildID string, session *discordgo.Session) []string {

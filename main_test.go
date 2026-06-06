@@ -6,11 +6,6 @@ import (
 	"testing"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/jinzhu/gorm"
-	_ "github.com/mattn/go-sqlite3"
-	"github.com/mousecrusher2/FindSenryu4Discord/db"
-	"github.com/mousecrusher2/FindSenryu4Discord/model"
-	"github.com/mousecrusher2/FindSenryu4Discord/service"
 )
 
 func TestRunHelp(t *testing.T) {
@@ -68,21 +63,6 @@ func TestExitCode(t *testing.T) {
 	}
 }
 
-func setupTestDB(t *testing.T) {
-	t.Helper()
-	var err error
-	db.DB, err = gorm.Open("sqlite3", ":memory:")
-	if err != nil {
-		t.Fatalf("failed to open test database: %v", err)
-	}
-	if err := db.DB.AutoMigrate(&model.MutedChannel{}).Error; err != nil {
-		t.Fatalf("failed to migrate test database: %v", err)
-	}
-	t.Cleanup(func() {
-		db.DB.Close()
-	})
-}
-
 func TestIsSupportedChannelType_対象タイプ(t *testing.T) {
 	enabledTypes := []discordgo.ChannelType{
 		discordgo.ChannelTypeGuildText,
@@ -116,34 +96,6 @@ func TestIsSupportedChannelType_対象外タイプ(t *testing.T) {
 func TestIsSupportedChannelType_未知のタイプは対象外(t *testing.T) {
 	if isSupportedChannelType(discordgo.ChannelType(999)) {
 		t.Error("unknown channel type should not be supported")
-	}
-}
-
-func TestContainsDiscordTokens(t *testing.T) {
-	tests := []struct {
-		name  string
-		input string
-		want  bool
-	}{
-		{"ユーザーメンション", "<@123456789> こんにちは", true},
-		{"ニックネーム付きメンション", "<@!123456789> こんにちは", true},
-		{"チャンネルメンション", "<#987654321> で話しましょう", true},
-		{"ロールメンション", "<@&111222333> に連絡", true},
-		{"カスタム絵文字", "すごい <:emoji:123456> ですね", true},
-		{"アニメーション絵文字", "楽しい <a:dance:789012> 時間", true},
-		{"URL_https", "詳細は https://example.com を参照", true},
-		{"URL_http", "リンク http://example.com です", true},
-		{"トークンなし", "古池や蛙飛び込む水の音", false},
-		{"空文字列", "", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := containsDiscordTokens(tt.input)
-			if got != tt.want {
-				t.Errorf("containsDiscordTokens(%q) = %v, want %v", tt.input, got, tt.want)
-			}
-		})
 	}
 }
 
@@ -331,52 +283,5 @@ func TestDetectionFiltering_統合テスト(t *testing.T) {
 					tt.content, content, !filtered, tt.wantFilter, tt.reason)
 			}
 		})
-	}
-}
-
-func TestIsParentChannelMuted_親チャンネルがミュート(t *testing.T) {
-	setupTestDB(t)
-
-	if err := service.ToMute("parent-channel", "test-guild"); err != nil {
-		t.Fatalf("failed to mute parent channel: %v", err)
-	}
-
-	ch := &discordgo.Channel{ParentID: "parent-channel"}
-	if !isParentChannelMuted(ch) {
-		t.Error("should detect parent channel as muted")
-	}
-}
-
-func TestIsParentChannelMuted_親チャンネルがミュートされていない(t *testing.T) {
-	setupTestDB(t)
-
-	ch := &discordgo.Channel{ParentID: "unmuted-parent"}
-	if isParentChannelMuted(ch) {
-		t.Error("should not detect unmuted parent channel as muted")
-	}
-}
-
-func TestIsParentChannelMuted_親チャンネルなし(t *testing.T) {
-	setupTestDB(t)
-
-	ch := &discordgo.Channel{ParentID: ""}
-	if isParentChannelMuted(ch) {
-		t.Error("channel with no parent should not be considered muted")
-	}
-}
-
-func TestIsParentChannelMuted_自チャンネルのミュートは親に影響しない(t *testing.T) {
-	setupTestDB(t)
-
-	if err := service.ToMute("thread-channel", "test-guild"); err != nil {
-		t.Fatalf("failed to mute thread channel: %v", err)
-	}
-
-	ch := &discordgo.Channel{
-		ID:       "thread-channel",
-		ParentID: "other-parent",
-	}
-	if isParentChannelMuted(ch) {
-		t.Error("muting the thread itself should not affect parent mute check")
 	}
 }

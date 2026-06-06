@@ -13,9 +13,3 @@ type Senryu struct {
 	Spoiler   *bool     `gorm:"column:spoiler;not null"`
 	CreatedAt time.Time `gorm:"column:created_at"`
 }
-
-// MutedChannel is struct of muted channel.
-type MutedChannel struct {
-	ChannelID string `gorm:"primaryKey"`
-	GuildID   string `gorm:"column:guild_id"`
-}
