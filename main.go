@@ -67,6 +67,8 @@ func run(args []string, stdout, stderr io.Writer) *exitStatus {
 		return runBot()
 	case "migrate":
 		return runMigrate()
+	case "backfill":
+		return runBackfill()
 	case "help", "-h", "--help":
 		printUsage(stdout)
 		return nil
@@ -78,7 +80,7 @@ func run(args []string, stdout, stderr io.Writer) *exitStatus {
 }
 
 func printUsage(w io.Writer) {
-	fmt.Fprintln(w, "Usage: findsenryu [bot|migrate]")
+	fmt.Fprintln(w, "Usage: findsenryu [bot|migrate|backfill]")
 }
 
 func runBot() (status *exitStatus) {
@@ -238,49 +240,82 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	content := m.Content
+	detection := detectSenryu(m.Content)
+	if detection == nil {
+		return
+	}
+
+	spoiler := detection.Spoiler
+	created, err := service.CreateSenryu(
+		model.Senryu{
+			ServerID:  m.GuildID,
+			AuthorID:  m.Author.ID,
+			Kamigo:    detection.Kamigo,
+			Nakasichi: detection.Nakasichi,
+			Simogo:    detection.Simogo,
+			Spoiler:   &spoiler,
+			CreatedAt: m.Timestamp,
+		},
+	)
+	if err != nil {
+		logger.Error("Failed to create senryu", "error", err)
+		return
+	}
+	replyText := fmt.Sprintf("川柳を検出しました！\n「%s」", detection.Text())
+	if detection.Spoiler {
+		replyText = fmt.Sprintf("川柳を検出しました！\n||「%s」||", detection.Text())
+	}
+	if _, err := s.ChannelMessageSendReply(
+		m.ChannelID,
+		replyText,
+		m.Reference(),
+	); err != nil {
+		logger.Warn("Failed to send senryu reply", "error", err, "channel_id", m.ChannelID)
+		// 返信に失敗した場合、保存した川柳を削除して整合性を保つ
+		if delErr := service.DeleteSenryu(created.ID, m.GuildID); delErr != nil {
+			logger.Error("Failed to rollback senryu after reply failure", "error", delErr, "senryu_id", created.ID)
+		} else {
+			logger.Info("Rolled back senryu after reply failure", "senryu_id", created.ID, "channel_id", m.ChannelID)
+		}
+	}
+}
+
+type senryuDetection struct {
+	Kamigo    string
+	Nakasichi string
+	Simogo    string
+	Spoiler   bool
+}
+
+func (d senryuDetection) Text() string {
+	return strings.Join([]string{d.Kamigo, d.Nakasichi, d.Simogo}, " ")
+}
+
+func detectSenryu(message string) *senryuDetection {
+	content := message
 	spoiler := containsSpoiler(content)
 	if spoiler {
 		content = stripSpoilerMarkers(content)
 	}
 	content = stripCodeBlocks(content)
 	if !isJapaneseRich(content) {
-		return
+		return nil
 	}
-	h := findHaikuSafe(content, []int{5, 7, 5})
-	if len(h) != 0 && !haikuSpansNewline(content, h[0]) {
-		senryu := strings.Split(h[0], " ")
-		created, err := service.CreateSenryu(
-			model.Senryu{
-				ServerID:  m.GuildID,
-				AuthorID:  m.Author.ID,
-				Kamigo:    senryu[0],
-				Nakasichi: senryu[1],
-				Simogo:    senryu[2],
-				Spoiler:   &spoiler,
-			},
-		)
-		if err != nil {
-			logger.Error("Failed to create senryu", "error", err)
-			return
-		}
-		replyText := fmt.Sprintf("川柳を検出しました！\n「%s」", h[0])
-		if spoiler {
-			replyText = fmt.Sprintf("川柳を検出しました！\n||「%s」||", h[0])
-		}
-		if _, err := s.ChannelMessageSendReply(
-			m.ChannelID,
-			replyText,
-			m.Reference(),
-		); err != nil {
-			logger.Warn("Failed to send senryu reply", "error", err, "channel_id", m.ChannelID)
-			// 返信に失敗した場合、保存した川柳を削除して整合性を保つ
-			if delErr := service.DeleteSenryu(int(created.ID), m.GuildID); delErr != nil {
-				logger.Error("Failed to rollback senryu after reply failure", "error", delErr, "senryu_id", created.ID)
-			} else {
-				logger.Info("Rolled back senryu after reply failure", "senryu_id", created.ID, "channel_id", m.ChannelID)
-			}
-		}
+
+	found := findHaikuSafe(content, []int{5, 7, 5})
+	if len(found) == 0 || haikuSpansNewline(content, found[0]) {
+		return nil
+	}
+
+	parts := strings.Split(found[0], " ")
+	if len(parts) != 3 {
+		return nil
+	}
+	return &senryuDetection{
+		Kamigo:    parts[0],
+		Nakasichi: parts[1],
+		Simogo:    parts[2],
+		Spoiler:   spoiler,
 	}
 }
 

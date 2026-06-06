@@ -39,7 +39,10 @@ func CreateSenryu(s model.Senryu) (model.Senryu, error) {
 func GetLastSenryu(serverID string) (*model.Senryu, error) {
 
 	s := model.Senryu{}
-	if err := db.DB.Where(&model.Senryu{ServerID: serverID}).Last(&s).Error; err != nil {
+	if err := db.DB.
+		Where(&model.Senryu{ServerID: serverID}).
+		Order("created_at DESC, id DESC").
+		First(&s).Error; err != nil {
 		if gorm.IsRecordNotFoundError(err) {
 			return nil, ErrSenryuNotFound
 		}

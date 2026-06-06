@@ -149,6 +149,68 @@ sudo journalctl -u findsenryu-app.service -f
 sudo journalctl -u findsenryu-app.service -p warning
 ```
 
+## Discord 履歴の取り込み
+
+`findsenryu backfill` は、bot が所属する1つのGuildについて、保存済みの最古の川柳より古いメッセージを走査します。通常チャンネル、アクティブスレッド、公開アーカイブスレッド、bot が参加済みの非公開アーカイブスレッドが対象です。Discord への返信やリアクションは行いません。
+
+走査位置は PostgreSQL に保存されます。中断または失敗した場合は同じコマンドを再実行すると最後に完了した100件の次から再開します。走査が完了した後の再実行は何もせず正常終了します。
+
+履歴走査中は通常の bot を停止してください。最初に app service を停止し、停止状態を確認します。
+
+```bash
+sudo systemctl stop findsenryu-app.service
+sudo systemctl is-active findsenryu-app.service
+```
+
+`inactive` と表示されることを確認してください。
+
+backfill 用テーブルを作成するため、使用するイメージで migration を実行します。
+
+```bash
+sudo podman run --rm \
+  --pull=always \
+  --authfile=/etc/containers/auth/findsenryu4discord.json \
+  --userns=auto \
+  --log-driver=passthrough \
+  --secret=findsenryu-pghost,target=pg-host \
+  --secret=findsenryu-pgdatabase,target=pg-database \
+  --secret=findsenryu-pguser,target=pg-user \
+  --secret=findsenryu-pgpassword,target=pg-password \
+  --secret=findsenryu-pgsslmode,target=pg-sslmode \
+  --secret=findsenryu-log-level,target=log-level \
+  kix.ocir.io/axkvg5nxhc7t/senryu:latest \
+  migrate
+```
+
+続けて履歴走査を実行します。
+
+```bash
+sudo podman run --rm \
+  --pull=always \
+  --authfile=/etc/containers/auth/findsenryu4discord.json \
+  --userns=auto \
+  --log-driver=passthrough \
+  --secret=findsenryu-discord-token,target=discord-token \
+  --secret=findsenryu-pghost,target=pg-host \
+  --secret=findsenryu-pgdatabase,target=pg-database \
+  --secret=findsenryu-pguser,target=pg-user \
+  --secret=findsenryu-pgpassword,target=pg-password \
+  --secret=findsenryu-pgsslmode,target=pg-sslmode \
+  --secret=findsenryu-log-level,target=log-level \
+  kix.ocir.io/axkvg5nxhc7t/senryu:latest \
+  backfill
+```
+
+`Ctrl-C`、Discord API error、権限不足、DB errorで終了した場合は、通常botを起動せずにbackfillコマンドを再実行してください。取得不能なチャンネルやスレッドは無視せず、進捗を保持したまま失敗終了します。
+
+正常完了後、target 全体をrestartしてmigrationから通常botまでの起動順序を適用します。
+
+```bash
+sudo systemctl restart findsenryu4discord.target
+sudo systemctl status findsenryu-app.service
+sudo journalctl -u findsenryu-app.service -n 50
+```
+
 イメージや Quadlet file を更新した場合は、同様に古いファイルを削除してから再インストールし、target を restart します。これにより `migrate` が実行されてから `app` が起動します。
 
 ```bash

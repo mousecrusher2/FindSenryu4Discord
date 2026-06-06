@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/jinzhu/gorm"
 	_ "github.com/mattn/go-sqlite3"
@@ -211,15 +212,16 @@ func TestGetServerStats_同一ユーザーが複数句(t *testing.T) {
 func TestGetLastSenryu_最後の川柳を返す(t *testing.T) {
 	setupSenryuTestDB(t)
 
-	db.DB.Create(&model.Senryu{
-		ServerID: "guild1", AuthorID: "user1",
-		Kamigo: "古池や", Nakasichi: "蛙飛び込む", Simogo: "水の音",
-		Spoiler: boolPtr(false),
-	})
+	latest := time.Date(2026, 6, 7, 12, 0, 0, 0, time.UTC)
 	db.DB.Create(&model.Senryu{
 		ServerID: "guild1", AuthorID: "user2",
 		Kamigo: "柿くへば", Nakasichi: "鐘が鳴るなり", Simogo: "法隆寺",
-		Spoiler: boolPtr(false),
+		Spoiler: boolPtr(false), CreatedAt: latest,
+	})
+	db.DB.Create(&model.Senryu{
+		ServerID: "guild1", AuthorID: "user1",
+		Kamigo: "古池や", Nakasichi: "蛙飛び込む", Simogo: "水の音",
+		Spoiler: boolPtr(false), CreatedAt: latest.Add(-time.Hour),
 	})
 
 	got, err := GetLastSenryu("guild1")
