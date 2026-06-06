@@ -30,3 +30,8 @@ jobs:
 
       - name: Run tests
         run: go test -v -race ./...
+
+      - name: Run deadcode
+        env:
+          CGO_ENABLED: "0"
+        run: go run golang.org/x/tools/cmd/deadcode@v0.45.0 -test ./...
