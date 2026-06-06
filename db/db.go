@@ -4,6 +4,7 @@ import (
 	"embed"
 	"errors"
 	"sync"
+	"syscall"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database"
@@ -99,10 +100,18 @@ func Close() error {
 	if DB != nil {
 		logger.Info("Closing database connection")
 		if err := DB.Close(); err != nil {
+			if isAlreadyClosedError(err) {
+				logger.Info("Database connection was already closed")
+				return nil
+			}
 			logger.Error("Failed to close database connection", "error", err)
 			return err
 		}
 		logger.Info("Database connection closed")
 	}
 	return nil
+}
+
+func isAlreadyClosedError(err error) bool {
+	return errors.Is(err, syscall.EPIPE)
 }
