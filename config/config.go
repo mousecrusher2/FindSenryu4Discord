@@ -221,16 +221,3 @@ func quotePostgresValue(value string) string {
 	b.WriteByte('\'')
 	return b.String()
 }
-
-// GetConf returns the loaded configuration.
-func GetConf() *Config {
-	if conf == nil {
-		var err error
-		conf, err = Load()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "<3>Failed to load config: %v\n", err)
-			os.Exit(1)
-		}
-	}
-	return conf
-}

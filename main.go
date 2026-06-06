@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"regexp"
@@ -35,31 +36,52 @@ var (
 	}
 )
 
+type exitStatus struct {
+	code int
+}
+
+var (
+	exitFailure = &exitStatus{code: 1}
+	exitUsage   = &exitStatus{code: 2}
+)
+
 func main() {
+	os.Exit(exitCode(run(os.Args[1:], os.Stdout, os.Stderr)))
+}
+
+func exitCode(status *exitStatus) int {
+	if status == nil {
+		return 0
+	}
+	return status.code
+}
+
+func run(args []string, stdout, stderr io.Writer) *exitStatus {
 	command := "bot"
-	if len(os.Args) > 1 {
-		command = os.Args[1]
+	if len(args) > 0 {
+		command = args[0]
 	}
 
 	switch command {
 	case "bot":
-		runBot()
+		return runBot()
 	case "migrate":
-		runMigrate()
+		return runMigrate()
 	case "help", "-h", "--help":
-		printUsage(os.Stdout)
+		printUsage(stdout)
+		return nil
 	default:
-		fmt.Fprintf(os.Stderr, "<3>Unknown command: %s\n", command)
-		printUsage(os.Stderr)
-		os.Exit(2)
+		fmt.Fprintf(stderr, "<3>Unknown command: %s\n", command)
+		printUsage(stderr)
+		return exitUsage
 	}
 }
 
-func printUsage(w *os.File) {
+func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "Usage: findsenryu [bot|migrate]")
 }
 
-func runBot() {
+func runBot() (status *exitStatus) {
 	// Initialize haiku dictionary
 	haiku.UseDict(uni.Dict())
 
@@ -67,7 +89,7 @@ func runBot() {
 	conf, err := config.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "<3>Failed to load config: %v\n", err)
-		os.Exit(1)
+		return exitFailure
 	}
 
 	// Initialize logger
@@ -81,10 +103,17 @@ func runBot() {
 	)
 
 	// Initialize database
-	if err := db.Init(); err != nil {
+	if err := db.Init(conf.Database.DSN); err != nil {
 		logger.Error("Failed to initialize database", "error", err)
-		os.Exit(1)
+		return exitFailure
 	}
+	defer func() {
+		if err := db.Close(); err != nil {
+			logger.Error("Failed to close database", "error", err)
+			status = exitFailure
+		}
+		logger.Info("Shutdown complete")
+	}()
 
 	// Gateway Intents
 	intents := discordgo.IntentGuilds |
@@ -94,7 +123,7 @@ func runBot() {
 	dg, err := discordgo.New("Bot " + conf.Discord.Token)
 	if err != nil {
 		logger.Error("Failed to create Discord session", "error", err)
-		os.Exit(1)
+		return exitFailure
 	}
 	dg.Identify.Intents = intents
 	dg.AddHandler(messageCreate)
@@ -102,8 +131,14 @@ func runBot() {
 
 	if err := dg.Open(); err != nil {
 		logger.Error("Failed to open Discord connection", "error", err)
-		os.Exit(1)
+		return exitFailure
 	}
+	defer func() {
+		if err := dg.Close(); err != nil {
+			logger.Error("Failed to close Discord connection", "error", err)
+			status = exitFailure
+		}
+	}()
 	logger.Info("Discord session connected")
 
 	// Synchronize user commands (global).
@@ -127,24 +162,14 @@ func runBot() {
 	// Slash commands are intentionally NOT removed on shutdown.
 	// ApplicationCommandBulkOverwrite synchronizes them on the next startup.
 
-	// Close Discord connection
-	if err := dg.Close(); err != nil {
-		logger.Error("Failed to close Discord connection", "error", err)
-	}
-
-	// Close database
-	if err := db.Close(); err != nil {
-		logger.Error("Failed to close database", "error", err)
-	}
-
-	logger.Info("Shutdown complete")
+	return nil
 }
 
-func runMigrate() {
+func runMigrate() (status *exitStatus) {
 	conf, err := config.LoadMigration()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "<3>Failed to load config: %v\n", err)
-		os.Exit(1)
+		return exitFailure
 	}
 
 	logger.Init(logger.Config{
@@ -155,18 +180,24 @@ func runMigrate() {
 		"db_driver", "postgres",
 	)
 
-	if err := db.Init(); err != nil {
+	if err := db.Init(conf.Database.DSN); err != nil {
 		logger.Error("Failed to connect to database", "error", err)
-		os.Exit(1)
+		return exitFailure
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			logger.Error("Failed to close database", "error", err)
+			status = exitFailure
+		}
+	}()
 
 	if err := db.Migrate(); err != nil {
 		logger.Error("Migration failed", "error", err)
-		os.Exit(1)
+		return exitFailure
 	}
 
 	logger.Info("Migration completed successfully")
+	return nil
 }
 
 func interactionCreate(s *discordgo.Session, i *discordgo.InteractionCreate) {

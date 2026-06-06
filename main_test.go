@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/bwmarrin/discordgo"
@@ -10,6 +12,61 @@ import (
 	"github.com/mousecrusher2/FindSenryu4Discord/model"
 	"github.com/mousecrusher2/FindSenryu4Discord/service"
 )
+
+func TestRunHelp(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+
+	if status := run([]string{"help"}, &stdout, &stderr); status != nil {
+		t.Fatalf("run() status = %d, want nil", status.code)
+	}
+	if !strings.Contains(stdout.String(), "Usage:") {
+		t.Fatalf("stdout = %q, want usage", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", stderr.String())
+	}
+}
+
+func TestRunUnknownCommand(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+
+	status := run([]string{"unknown"}, &stdout, &stderr)
+	if status == nil {
+		t.Fatal("run() status = nil, want exit status")
+	}
+	if code := exitCode(status); code != 2 {
+		t.Fatalf("exitCode() = %d, want 2", code)
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "Unknown command: unknown") {
+		t.Fatalf("stderr = %q, want unknown command error", stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "Usage:") {
+		t.Fatalf("stderr = %q, want usage", stderr.String())
+	}
+}
+
+func TestExitCode(t *testing.T) {
+	tests := []struct {
+		name   string
+		status *exitStatus
+		want   int
+	}{
+		{name: "success", status: nil, want: 0},
+		{name: "failure", status: exitFailure, want: 1},
+		{name: "usage", status: exitUsage, want: 2},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := exitCode(tt.status); got != tt.want {
+				t.Fatalf("exitCode() = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
 
 func setupTestDB(t *testing.T) {
 	t.Helper()

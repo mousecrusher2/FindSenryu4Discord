@@ -12,7 +12,6 @@ import (
 	"github.com/golang-migrate/migrate/v4/source"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/jinzhu/gorm"
-	"github.com/mousecrusher2/FindSenryu4Discord/config"
 	"github.com/mousecrusher2/FindSenryu4Discord/pkg/logger"
 
 	// PostgreSQL driver for Gorm
@@ -28,19 +27,17 @@ var (
 var postgresMigrations embed.FS
 
 // Init initializes the database connection
-func Init() error {
+func Init(dsn string) error {
 	var initErr error
 	once.Do(func() {
-		initErr = initDB()
+		initErr = initDB(dsn)
 	})
 	return initErr
 }
 
-func initDB() error {
-	conf := config.GetConf()
-
+func initDB(dsn string) error {
 	var err error
-	DB, err = gorm.Open("postgres", conf.Database.DSN)
+	DB, err = gorm.Open("postgres", dsn)
 	if err != nil {
 		logger.Error("Failed to connect to PostgreSQL", "error", err)
 		return err
