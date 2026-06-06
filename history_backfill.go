@@ -31,6 +31,7 @@ const (
 type historyAPI interface {
 	Guilds(context.Context) ([]*discordgo.UserGuild, error)
 	GuildChannels(context.Context, string) ([]*discordgo.Channel, error)
+	CanReadChannel(context.Context, string, string) (bool, error)
 	ActiveThreads(context.Context, string) (*discordgo.ThreadsList, error)
 	PublicArchivedThreads(context.Context, string, *time.Time) (*discordgo.ThreadsList, error)
 	JoinedPrivateArchivedThreads(context.Context, string, string) (*discordgo.ThreadsList, error)
@@ -38,7 +39,10 @@ type historyAPI interface {
 }
 
 type discordHistoryAPI struct {
-	session *discordgo.Session
+	session            *discordgo.Session
+	permissionGuildID  string
+	channelPermissions map[string]int64
+	historyChannelByID map[string]*discordgo.Channel
 }
 
 func newDiscordHistoryAPI(token string) (*discordHistoryAPI, error) {
@@ -57,9 +61,133 @@ func (a *discordHistoryAPI) Guilds(ctx context.Context) ([]*discordgo.UserGuild,
 }
 
 func (a *discordHistoryAPI) GuildChannels(ctx context.Context, guildID string) ([]*discordgo.Channel, error) {
-	return discordRequest(ctx, func(options ...discordgo.RequestOption) ([]*discordgo.Channel, error) {
+	if err := a.loadPermissionContext(ctx, guildID); err != nil {
+		return nil, err
+	}
+
+	channels := make([]*discordgo.Channel, 0, len(a.historyChannelByID))
+	for _, channel := range a.historyChannelByID {
+		if hasHistoryPermissions(a.channelPermissions[channel.ID]) {
+			channels = append(channels, channel)
+		}
+	}
+	return channels, nil
+}
+
+func (a *discordHistoryAPI) CanReadChannel(
+	ctx context.Context,
+	guildID string,
+	channelID string,
+) (bool, error) {
+	if err := a.loadPermissionContext(ctx, guildID); err != nil {
+		return false, err
+	}
+
+	if permissions, ok := a.channelPermissions[channelID]; ok {
+		return hasHistoryPermissions(permissions), nil
+	}
+
+	channel, err := discordRequest(ctx, func(options ...discordgo.RequestOption) (*discordgo.Channel, error) {
+		return a.session.Channel(channelID, options...)
+	})
+	if err != nil {
+		if isDiscordNotFoundOrForbidden(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	if !isSupportedChannelType(channel.Type) || channel.ParentID == "" {
+		return false, nil
+	}
+	return hasHistoryPermissions(a.channelPermissions[channel.ParentID]), nil
+}
+
+func (a *discordHistoryAPI) loadPermissionContext(ctx context.Context, guildID string) error {
+	if a.permissionGuildID == guildID && a.channelPermissions != nil {
+		return nil
+	}
+
+	channels, err := discordRequest(ctx, func(options ...discordgo.RequestOption) ([]*discordgo.Channel, error) {
 		return a.session.GuildChannels(guildID, options...)
 	})
+	if err != nil {
+		return fmt.Errorf("failed to get guild channels for permission calculation: %w", err)
+	}
+	user, err := discordRequest(ctx, func(options ...discordgo.RequestOption) (*discordgo.User, error) {
+		return a.session.User("@me", options...)
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get current Discord user: %w", err)
+	}
+	guild, err := discordRequest(ctx, func(options ...discordgo.RequestOption) (*discordgo.Guild, error) {
+		return a.session.Guild(guildID, options...)
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get guild for permission calculation: %w", err)
+	}
+	member, err := discordRequest(ctx, func(options ...discordgo.RequestOption) (*discordgo.Member, error) {
+		return a.session.GuildMember(guildID, user.ID, options...)
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get bot guild member: %w", err)
+	}
+
+	permissions, channelByID, err := calculateHistoryChannelPermissions(user.ID, guild, member, channels)
+	if err != nil {
+		return err
+	}
+
+	a.permissionGuildID = guildID
+	a.channelPermissions = permissions
+	a.historyChannelByID = channelByID
+	return nil
+}
+
+func calculateHistoryChannelPermissions(
+	userID string,
+	guild *discordgo.Guild,
+	member *discordgo.Member,
+	channels []*discordgo.Channel,
+) (map[string]int64, map[string]*discordgo.Channel, error) {
+	member.GuildID = guild.ID
+	guild.Channels = channels
+	guild.Members = []*discordgo.Member{member}
+	state := discordgo.NewState()
+	if err := state.GuildAdd(guild); err != nil {
+		return nil, nil, fmt.Errorf("failed to initialize Discord permission state: %w", err)
+	}
+
+	permissions := make(map[string]int64, len(channels))
+	channelByID := make(map[string]*discordgo.Channel, len(channels))
+	for _, channel := range channels {
+		if !isHistoryChannelCandidate(channel.Type) {
+			continue
+		}
+		channelPermissions, err := state.UserChannelPermissions(userID, channel.ID)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to calculate permissions for channel %s: %w", channel.ID, err)
+		}
+		permissions[channel.ID] = channelPermissions
+		channelByID[channel.ID] = channel
+	}
+	return permissions, channelByID, nil
+}
+
+func hasHistoryPermissions(permissions int64) bool {
+	required := int64(discordgo.PermissionViewChannel | discordgo.PermissionReadMessageHistory)
+	return permissions&required == required
+}
+
+func isHistoryChannelCandidate(channelType discordgo.ChannelType) bool {
+	return isSupportedChannelType(channelType) || isPublicThreadParent(channelType)
+}
+
+func isDiscordNotFoundOrForbidden(err error) bool {
+	var restError *discordgo.RESTError
+	if !errors.As(err, &restError) || restError.Response == nil {
+		return false
+	}
+	return restError.Response.StatusCode == 403 || restError.Response.StatusCode == 404
 }
 
 func (a *discordHistoryAPI) ActiveThreads(ctx context.Context, guildID string) (*discordgo.ThreadsList, error) {
@@ -328,7 +456,11 @@ func discoverHistoryChannels(ctx context.Context, api historyAPI, guildID string
 	if err != nil {
 		return nil, fmt.Errorf("failed to get active threads: %w", err)
 	}
-	addThreads(targets, activeThreads.Threads)
+	accessibleParents := make(map[string]struct{}, len(channels))
+	for _, channel := range channels {
+		accessibleParents[channel.ID] = struct{}{}
+	}
+	addThreads(targets, activeThreads.Threads, accessibleParents)
 
 	for _, channel := range channels {
 		if isPublicThreadParent(channel.Type) {
@@ -363,7 +495,7 @@ func discoverPublicArchivedThreads(
 		if err != nil {
 			return fmt.Errorf("failed to get public archived threads for channel %s: %w", channelID, err)
 		}
-		addThreads(targets, threads.Threads)
+		addThreads(targets, threads.Threads, map[string]struct{}{channelID: {}})
 		if !threads.HasMore {
 			return nil
 		}
@@ -391,7 +523,7 @@ func discoverJoinedPrivateArchivedThreads(
 		if err != nil {
 			return fmt.Errorf("failed to get joined private archived threads for channel %s: %w", channelID, err)
 		}
-		addThreads(targets, threads.Threads)
+		addThreads(targets, threads.Threads, map[string]struct{}{channelID: {}})
 		if !threads.HasMore {
 			return nil
 		}
@@ -406,9 +538,16 @@ func discoverJoinedPrivateArchivedThreads(
 	}
 }
 
-func addThreads(targets map[string]struct{}, threads []*discordgo.Channel) {
+func addThreads(
+	targets map[string]struct{},
+	threads []*discordgo.Channel,
+	accessibleParents map[string]struct{},
+) {
 	for _, thread := range threads {
-		if thread != nil && isSupportedChannelType(thread.Type) {
+		if thread == nil || !isSupportedChannelType(thread.Type) {
+			continue
+		}
+		if _, ok := accessibleParents[thread.ParentID]; ok {
 			targets[thread.ID] = struct{}{}
 		}
 	}
@@ -434,6 +573,22 @@ func backfillChannel(
 ) error {
 	beforeMessageID := channel.BeforeMessageID
 	logger.Info("Backfilling channel", "channel_id", channel.ChannelID, "before_message_id", beforeMessageID)
+
+	canRead, err := api.CanReadChannel(ctx, guildID, channel.ChannelID)
+	if err != nil {
+		return fmt.Errorf("failed to check history permissions for channel %s: %w", channel.ChannelID, err)
+	}
+	if !canRead {
+		logger.Info("Skipping channel without history permissions", "channel_id", channel.ChannelID)
+		return service.CommitHistoryBackfillPage(
+			guildID,
+			channel.ChannelID,
+			nil,
+			beforeMessageID,
+			beforeMessageID,
+			true,
+		)
+	}
 
 	for {
 		if err := ctx.Err(); err != nil {

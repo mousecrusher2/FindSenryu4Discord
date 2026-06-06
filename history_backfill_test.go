@@ -27,6 +27,7 @@ type fakeHistoryAPI struct {
 	messagePages        map[string][][]*discordgo.Message
 	messageCalls        map[string]int
 	messageBefores      map[string][]string
+	readableChannels    map[string]bool
 	guildChannelsCalled int
 }
 
@@ -37,6 +38,13 @@ func (f *fakeHistoryAPI) Guilds(context.Context) ([]*discordgo.UserGuild, error)
 func (f *fakeHistoryAPI) GuildChannels(context.Context, string) ([]*discordgo.Channel, error) {
 	f.guildChannelsCalled++
 	return f.channels, nil
+}
+
+func (f *fakeHistoryAPI) CanReadChannel(_ context.Context, _ string, channelID string) (bool, error) {
+	if f.readableChannels == nil {
+		return true, nil
+	}
+	return f.readableChannels[channelID], nil
 }
 
 func (f *fakeHistoryAPI) ActiveThreads(context.Context, string) (*discordgo.ThreadsList, error) {
@@ -132,6 +140,90 @@ func TestSelectSingleGuild(t *testing.T) {
 	}
 }
 
+func TestHasHistoryPermissions(t *testing.T) {
+	required := int64(discordgo.PermissionViewChannel | discordgo.PermissionReadMessageHistory)
+	tests := []struct {
+		name        string
+		permissions int64
+		want        bool
+	}{
+		{name: "both", permissions: required, want: true},
+		{name: "administrator", permissions: int64(discordgo.PermissionAll), want: true},
+		{name: "view only", permissions: int64(discordgo.PermissionViewChannel), want: false},
+		{name: "history only", permissions: int64(discordgo.PermissionReadMessageHistory), want: false},
+		{name: "neither", permissions: 0, want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := hasHistoryPermissions(tt.permissions); got != tt.want {
+				t.Fatalf("hasHistoryPermissions() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCalculateHistoryChannelPermissions(t *testing.T) {
+	required := int64(discordgo.PermissionViewChannel | discordgo.PermissionReadMessageHistory)
+	guild := &discordgo.Guild{
+		ID: "guild",
+		Roles: []*discordgo.Role{
+			{ID: "guild", Permissions: required},
+		},
+	}
+	member := &discordgo.Member{User: &discordgo.User{ID: "bot"}}
+	channels := []*discordgo.Channel{
+		{
+			ID:      "visible",
+			GuildID: "guild",
+			Type:    discordgo.ChannelTypeGuildText,
+		},
+		{
+			ID:      "hidden",
+			GuildID: "guild",
+			Type:    discordgo.ChannelTypeGuildText,
+			PermissionOverwrites: []*discordgo.PermissionOverwrite{
+				{
+					ID:   "guild",
+					Type: discordgo.PermissionOverwriteTypeRole,
+					Deny: int64(discordgo.PermissionViewChannel),
+				},
+			},
+		},
+		{
+			ID:      "member-allowed",
+			GuildID: "guild",
+			Type:    discordgo.ChannelTypeGuildText,
+			PermissionOverwrites: []*discordgo.PermissionOverwrite{
+				{
+					ID:   "guild",
+					Type: discordgo.PermissionOverwriteTypeRole,
+					Deny: required,
+				},
+				{
+					ID:    "bot",
+					Type:  discordgo.PermissionOverwriteTypeMember,
+					Allow: required,
+				},
+			},
+		},
+	}
+
+	permissions, _, err := calculateHistoryChannelPermissions("bot", guild, member, channels)
+	if err != nil {
+		t.Fatalf("calculateHistoryChannelPermissions() error = %v", err)
+	}
+	if !hasHistoryPermissions(permissions["visible"]) {
+		t.Fatal("visible channel should be readable")
+	}
+	if hasHistoryPermissions(permissions["hidden"]) {
+		t.Fatal("hidden channel should not be readable")
+	}
+	if !hasHistoryPermissions(permissions["member-allowed"]) {
+		t.Fatal("member-allowed channel should be readable")
+	}
+}
+
 func TestDiscoverHistoryChannels(t *testing.T) {
 	archiveTime := time.Now().UTC()
 	api := &fakeHistoryAPI{
@@ -142,7 +234,7 @@ func TestDiscoverHistoryChannels(t *testing.T) {
 		},
 		activeThreads: &discordgo.ThreadsList{
 			Threads: []*discordgo.Channel{
-				{ID: "active", Type: discordgo.ChannelTypeGuildPublicThread},
+				{ID: "active", ParentID: "text", Type: discordgo.ChannelTypeGuildPublicThread},
 			},
 		},
 		publicArchived: map[string][]*discordgo.ThreadsList{
@@ -150,8 +242,9 @@ func TestDiscoverHistoryChannels(t *testing.T) {
 				{
 					Threads: []*discordgo.Channel{
 						{
-							ID:   "public-1",
-							Type: discordgo.ChannelTypeGuildPublicThread,
+							ID:       "public-1",
+							ParentID: "text",
+							Type:     discordgo.ChannelTypeGuildPublicThread,
 							ThreadMetadata: &discordgo.ThreadMetadata{
 								ArchiveTimestamp: archiveTime,
 							},
@@ -161,7 +254,7 @@ func TestDiscoverHistoryChannels(t *testing.T) {
 				},
 				{
 					Threads: []*discordgo.Channel{
-						{ID: "public-2", Type: discordgo.ChannelTypeGuildPublicThread},
+						{ID: "public-2", ParentID: "text", Type: discordgo.ChannelTypeGuildPublicThread},
 					},
 				},
 			},
@@ -170,7 +263,7 @@ func TestDiscoverHistoryChannels(t *testing.T) {
 			"text": {
 				{
 					Threads: []*discordgo.Channel{
-						{ID: "private", Type: discordgo.ChannelTypeGuildPrivateThread},
+						{ID: "private", ParentID: "text", Type: discordgo.ChannelTypeGuildPrivateThread},
 					},
 				},
 			},
@@ -298,6 +391,40 @@ func TestBackfillChannelAdvancesByPage(t *testing.T) {
 	}
 	if got, want := api.messageBefores["channel"], []string{"initial", "1"}; len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
 		t.Fatalf("message before cursors = %v, want %v", got, want)
+	}
+	next, err := service.GetNextHistoryBackfillChannel("guild")
+	if err != nil {
+		t.Fatalf("GetNextHistoryBackfillChannel() error = %v", err)
+	}
+	if next != nil {
+		t.Fatalf("next channel = %v, want nil", next)
+	}
+}
+
+func TestBackfillChannelSkipsChannelWithoutHistoryPermissions(t *testing.T) {
+	setupMainHistoryBackfillTestDB(t)
+
+	if err := service.CreateHistoryBackfill("guild", nil, "initial", []string{"hidden"}); err != nil {
+		t.Fatalf("CreateHistoryBackfill() error = %v", err)
+	}
+	channel, err := service.GetNextHistoryBackfillChannel("guild")
+	if err != nil {
+		t.Fatalf("GetNextHistoryBackfillChannel() error = %v", err)
+	}
+
+	api := &fakeHistoryAPI{
+		readableChannels:   map[string]bool{"hidden": false},
+		messagePages:       make(map[string][][]*discordgo.Message),
+		messageCalls:       make(map[string]int),
+		messageBefores:     make(map[string][]string),
+		publicCalls:        make(map[string]int),
+		joinedPrivateCalls: make(map[string]int),
+	}
+	if err := backfillChannel(context.Background(), api, "guild", channel); err != nil {
+		t.Fatalf("backfillChannel() error = %v", err)
+	}
+	if api.messageCalls["hidden"] != 0 {
+		t.Fatalf("Messages() called %d times, want 0", api.messageCalls["hidden"])
 	}
 	next, err := service.GetNextHistoryBackfillChannel("guild")
 	if err != nil {

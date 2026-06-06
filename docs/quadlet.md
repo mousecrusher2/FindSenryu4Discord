@@ -199,7 +199,7 @@ sudo podman run --rm \
   backfill
 ```
 
-`Ctrl-C`、Discord API error、権限不足、DB errorで終了した場合は、通常botを起動せずにbackfillコマンドを再実行してください。取得不能なチャンネルやスレッドは無視せず、進捗を保持したまま失敗終了します。
+`Ctrl-C`、Discord API error、DB errorで終了した場合は、通常botを起動せずにbackfillコマンドを再実行してください。bot に `VIEW_CHANNEL` または `READ_MESSAGE_HISTORY` がないチャンネルと、取得不能になったチャンネルやスレッドは完了扱いでスキップします。
 
 正常完了後、target 全体をrestartしてmigrationから通常botまでの起動順序を適用します。
 
