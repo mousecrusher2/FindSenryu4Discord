@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/url"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -82,7 +83,11 @@ func (f *fakeHistoryAPI) JoinedPrivateArchivedThreads(
 	return pages[call], nil
 }
 
-func (f *fakeHistoryAPI) Messages(_ context.Context, channelID, beforeMessageID string) ([]*discordgo.Message, error) {
+func (f *fakeHistoryAPI) Messages(
+	_ context.Context,
+	channelID,
+	beforeMessageID string,
+) ([]*discordgo.Message, error) {
 	call := f.messageCalls[channelID]
 	f.messageCalls[channelID] = call + 1
 	f.messageBefores[channelID] = append(f.messageBefores[channelID], beforeMessageID)
@@ -310,26 +315,160 @@ func TestPublicArchivedThreadsURLPreservesSubsecondPrecision(t *testing.T) {
 	}
 }
 
-func TestDiscordRequestRetriesRateLimit(t *testing.T) {
-	calls := 0
-	got, err := discordRequest(context.Background(), func(...discordgo.RequestOption) (string, error) {
-		calls++
-		if calls == 1 {
-			return "", &discordgo.RateLimitError{
+func TestUnmarshalDiscordJSONSkipsCheckpointComponent(t *testing.T) {
+	body := []byte(`[
+		{
+			"id": "newer",
+			"content": "newer message"
+		},
+		{
+			"id": "problem-message",
+			"components": [{"type": 20}]
+		},
+		{
+			"id": "older",
+			"content": "older message"
+		}
+	]`)
+
+	var messages []*discordgo.Message
+	err := unmarshalDiscordJSON(body, &messages)
+	if err != nil {
+		t.Fatalf("unmarshalDiscordJSON() error = %v", err)
+	}
+	if len(messages) != 3 {
+		t.Fatalf("unmarshalDiscordJSON() returned %d messages, want 3", len(messages))
+	}
+	if messages[0].ID != "newer" || messages[1].ID != "problem-message" || messages[2].ID != "older" {
+		t.Fatalf(
+			"unmarshalDiscordJSON() IDs = [%q %q %q], want [newer problem-message older]",
+			messages[0].ID,
+			messages[1].ID,
+			messages[2].ID,
+		)
+	}
+	if messages[1].Author != nil || messages[1].Content != "" {
+		t.Fatalf("checkpoint message was not reduced to pagination data: %#v", messages[1])
+	}
+}
+
+func TestUnmarshalDiscordJSONOtherComponentErrorIncludesMessageID(t *testing.T) {
+	body := []byte(`[
+		{
+			"id": "problem-message",
+			"components": [{"type": 99}]
+		}
+	]`)
+
+	var messages []*discordgo.Message
+	err := unmarshalDiscordJSON(body, &messages)
+	if err == nil {
+		t.Fatal("unmarshalDiscordJSON() error = nil, want unknown component error")
+	}
+	if !strings.Contains(err.Error(), "problem-message") {
+		t.Fatalf("unmarshalDiscordJSON() error = %q, want message ID", err)
+	}
+}
+
+func TestUnmarshalDiscordJSONPreservesReplyWithCheckpointReference(t *testing.T) {
+	body := []byte(`[
+		{
+			"id": "reply",
+			"content": "五七五の返信",
+			"author": {"id": "author"},
+			"referenced_message": {
+				"id": "checkpoint",
+				"components": [{"type": 20}]
+			}
+		}
+	]`)
+
+	var messages []*discordgo.Message
+	if err := unmarshalDiscordJSON(body, &messages); err != nil {
+		t.Fatalf("unmarshalDiscordJSON() error = %v", err)
+	}
+	if len(messages) != 1 {
+		t.Fatalf("unmarshalDiscordJSON() returned %d messages, want 1", len(messages))
+	}
+	message := messages[0]
+	if message.ID != "reply" || message.Content != "五七五の返信" {
+		t.Fatalf("reply = %#v", message)
+	}
+	if message.Author == nil || message.Author.ID != "author" {
+		t.Fatalf("reply author = %#v, want author", message.Author)
+	}
+	if message.ReferencedMessage == nil || message.ReferencedMessage.ID != "checkpoint" {
+		t.Fatalf("referenced message = %#v, want checkpoint", message.ReferencedMessage)
+	}
+	if len(message.ReferencedMessage.Components) != 0 {
+		t.Fatalf("referenced components = %#v, want empty", message.ReferencedMessage.Components)
+	}
+}
+
+func TestDiscordRequestHonorsCancellationDuringRateLimit(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	requested := make(chan struct{})
+	result := make(chan error, 1)
+	go func() {
+		result <- discordRequest(ctx, func(...discordgo.RequestOption) error {
+			close(requested)
+			return &discordgo.RateLimitError{
 				RateLimit: &discordgo.RateLimit{
-					TooManyRequests: &discordgo.TooManyRequests{RetryAfter: time.Millisecond},
+					TooManyRequests: &discordgo.TooManyRequests{RetryAfter: time.Hour},
 					URL:             "test",
 				},
 			}
+		})
+	}()
+
+	<-requested
+	cancel()
+
+	select {
+	case err := <-result:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("discordRequest() error = %v, want context.Canceled", err)
 		}
-		return "ok", nil
-	})
-	if err != nil {
-		t.Fatalf("discordRequest() error = %v", err)
+	case <-time.After(time.Second):
+		t.Fatal("discordRequest() did not stop after cancellation")
 	}
-	if got != "ok" || calls != 2 {
-		t.Fatalf("discordRequest() = %q after %d calls, want ok after 2 calls", got, calls)
+}
+
+func TestDiscordRequestCancellationDoesNotRaceWithLateResult(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	requested := make(chan struct{})
+	release := make(chan struct{})
+	requestDone := make(chan struct{})
+
+	call := func() (string, error) {
+		var value string
+		err := discordRequest(ctx, func(...discordgo.RequestOption) error {
+			close(requested)
+			<-release
+			value = "late result"
+			close(requestDone)
+			return nil
+		})
+		if err != nil {
+			return "", err
+		}
+		return value, nil
 	}
+
+	result := make(chan error, 1)
+	go func() {
+		_, err := call()
+		result <- err
+	}()
+
+	<-requested
+	cancel()
+	if err := <-result; !errors.Is(err, context.Canceled) {
+		t.Fatalf("call() error = %v, want context.Canceled", err)
+	}
+
+	close(release)
+	<-requestDone
 }
 
 func TestExecuteHistoryBackfillReturnsImmediatelyWhenComplete(t *testing.T) {

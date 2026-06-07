@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"sort"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -51,13 +52,21 @@ func newDiscordHistoryAPI(token string) (*discordHistoryAPI, error) {
 		return nil, fmt.Errorf("failed to create Discord session: %w", err)
 	}
 	session.ShouldRetryOnRateLimit = false
+	discordgo.Unmarshal = unmarshalDiscordJSON
 	return &discordHistoryAPI{session: session}, nil
 }
 
 func (a *discordHistoryAPI) Guilds(ctx context.Context) ([]*discordgo.UserGuild, error) {
-	return discordRequest(ctx, func(options ...discordgo.RequestOption) ([]*discordgo.UserGuild, error) {
-		return a.session.UserGuilds(2, "", "", false, options...)
+	var guilds []*discordgo.UserGuild
+	err := discordRequest(ctx, func(options ...discordgo.RequestOption) error {
+		var err error
+		guilds, err = a.session.UserGuilds(2, "", "", false, options...)
+		return err
 	})
+	if err != nil {
+		return nil, err
+	}
+	return guilds, nil
 }
 
 func (a *discordHistoryAPI) GuildChannels(ctx context.Context, guildID string) ([]*discordgo.Channel, error) {
@@ -87,8 +96,11 @@ func (a *discordHistoryAPI) CanReadChannel(
 		return hasHistoryPermissions(permissions), nil
 	}
 
-	channel, err := discordRequest(ctx, func(options ...discordgo.RequestOption) (*discordgo.Channel, error) {
-		return a.session.Channel(channelID, options...)
+	var channel *discordgo.Channel
+	err := discordRequest(ctx, func(options ...discordgo.RequestOption) error {
+		var err error
+		channel, err = a.session.Channel(channelID, options...)
+		return err
 	})
 	if err != nil {
 		if isDiscordNotFoundOrForbidden(err) {
@@ -107,26 +119,41 @@ func (a *discordHistoryAPI) loadPermissionContext(ctx context.Context, guildID s
 		return nil
 	}
 
-	channels, err := discordRequest(ctx, func(options ...discordgo.RequestOption) ([]*discordgo.Channel, error) {
-		return a.session.GuildChannels(guildID, options...)
+	var channels []*discordgo.Channel
+	err := discordRequest(ctx, func(options ...discordgo.RequestOption) error {
+		var err error
+		channels, err = a.session.GuildChannels(guildID, options...)
+		return err
 	})
 	if err != nil {
 		return fmt.Errorf("failed to get guild channels for permission calculation: %w", err)
 	}
-	user, err := discordRequest(ctx, func(options ...discordgo.RequestOption) (*discordgo.User, error) {
-		return a.session.User("@me", options...)
+
+	var user *discordgo.User
+	err = discordRequest(ctx, func(options ...discordgo.RequestOption) error {
+		var err error
+		user, err = a.session.User("@me", options...)
+		return err
 	})
 	if err != nil {
 		return fmt.Errorf("failed to get current Discord user: %w", err)
 	}
-	guild, err := discordRequest(ctx, func(options ...discordgo.RequestOption) (*discordgo.Guild, error) {
-		return a.session.Guild(guildID, options...)
+
+	var guild *discordgo.Guild
+	err = discordRequest(ctx, func(options ...discordgo.RequestOption) error {
+		var err error
+		guild, err = a.session.Guild(guildID, options...)
+		return err
 	})
 	if err != nil {
 		return fmt.Errorf("failed to get guild for permission calculation: %w", err)
 	}
-	member, err := discordRequest(ctx, func(options ...discordgo.RequestOption) (*discordgo.Member, error) {
-		return a.session.GuildMember(guildID, user.ID, options...)
+
+	var member *discordgo.Member
+	err = discordRequest(ctx, func(options ...discordgo.RequestOption) error {
+		var err error
+		member, err = a.session.GuildMember(guildID, user.ID, options...)
+		return err
 	})
 	if err != nil {
 		return fmt.Errorf("failed to get bot guild member: %w", err)
@@ -191,9 +218,16 @@ func isDiscordNotFoundOrForbidden(err error) bool {
 }
 
 func (a *discordHistoryAPI) ActiveThreads(ctx context.Context, guildID string) (*discordgo.ThreadsList, error) {
-	return discordRequest(ctx, func(options ...discordgo.RequestOption) (*discordgo.ThreadsList, error) {
-		return a.session.GuildThreadsActive(guildID, options...)
+	var threads *discordgo.ThreadsList
+	err := discordRequest(ctx, func(options ...discordgo.RequestOption) error {
+		var err error
+		threads, err = a.session.GuildThreadsActive(guildID, options...)
+		return err
 	})
+	if err != nil {
+		return nil, err
+	}
+	return threads, nil
 }
 
 func (a *discordHistoryAPI) PublicArchivedThreads(
@@ -202,8 +236,11 @@ func (a *discordHistoryAPI) PublicArchivedThreads(
 	before *time.Time,
 ) (*discordgo.ThreadsList, error) {
 	requestURL := publicArchivedThreadsURL(channelID, before)
-	body, err := discordRequest(ctx, func(options ...discordgo.RequestOption) ([]byte, error) {
-		return a.session.Request("GET", requestURL, nil, options...)
+	var body []byte
+	err := discordRequest(ctx, func(options ...discordgo.RequestOption) error {
+		var err error
+		body, err = a.session.Request("GET", requestURL, nil, options...)
+		return err
 	})
 	if err != nil {
 		return nil, err
@@ -239,8 +276,11 @@ func (a *discordHistoryAPI) JoinedPrivateArchivedThreads(
 	}
 	requestURL := endpoint + "?" + query.Encode()
 
-	body, err := discordRequest(ctx, func(options ...discordgo.RequestOption) ([]byte, error) {
-		return a.session.Request("GET", requestURL, nil, options...)
+	var body []byte
+	err := discordRequest(ctx, func(options ...discordgo.RequestOption) error {
+		var err error
+		body, err = a.session.Request("GET", requestURL, nil, options...)
+		return err
 	})
 	if err != nil {
 		return nil, err
@@ -258,41 +298,151 @@ func (a *discordHistoryAPI) Messages(
 	channelID string,
 	beforeMessageID string,
 ) ([]*discordgo.Message, error) {
-	return discordRequest(ctx, func(options ...discordgo.RequestOption) ([]*discordgo.Message, error) {
-		return a.session.ChannelMessages(channelID, historyPageSize, beforeMessageID, "", "", options...)
+	var messages []*discordgo.Message
+	err := discordRequest(ctx, func(options ...discordgo.RequestOption) error {
+		var err error
+		messages, err = a.session.ChannelMessages(
+			channelID,
+			historyPageSize,
+			beforeMessageID,
+			"",
+			"",
+			options...,
+		)
+		return err
 	})
+	if err != nil {
+		return nil, err
+	}
+	return messages, nil
 }
 
-type discordResult[T any] struct {
-	value T
-	err   error
+func unmarshalDiscordJSON(src []byte, destination interface{}) error {
+	messages, ok := destination.(*[]*discordgo.Message)
+	if !ok {
+		return json.Unmarshal(src, destination)
+	}
+
+	var rawMessages []json.RawMessage
+	if err := json.Unmarshal(src, &rawMessages); err != nil {
+		return err
+	}
+
+	decoded := make([]*discordgo.Message, 0, len(rawMessages))
+	for _, rawMessage := range rawMessages {
+		message, err := decodeDiscordMessage(rawMessage)
+		if err != nil {
+			return messageDecodeError(rawMessage, err)
+		}
+		decoded = append(decoded, message)
+	}
+	*messages = decoded
+	return nil
 }
 
-func discordRequest[T any](
+func isCheckpointComponentError(err error) bool {
+	return err != nil && strings.HasSuffix(err.Error(), "unknown component type: 20")
+}
+
+func decodeDiscordMessage(rawMessage []byte) (*discordgo.Message, error) {
+	message := new(discordgo.Message)
+	if err := json.Unmarshal(rawMessage, message); err == nil {
+		return message, nil
+	} else if !isCheckpointComponentError(err) {
+		return nil, err
+	}
+
+	hasCheckpoint, err := hasCheckpointComponent(rawMessage)
+	if err != nil {
+		return nil, err
+	}
+	if hasCheckpoint {
+		id, err := messageID(rawMessage)
+		if err != nil {
+			return nil, err
+		}
+		return &discordgo.Message{ID: id}, nil
+	}
+
+	type messageWithoutMethods discordgo.Message
+	var fallback struct {
+		*messageWithoutMethods
+		ReferencedMessage json.RawMessage `json:"referenced_message"`
+	}
+	fallback.messageWithoutMethods = (*messageWithoutMethods)(message)
+	if err := json.Unmarshal(rawMessage, &fallback); err != nil {
+		return nil, err
+	}
+	if len(fallback.ReferencedMessage) == 0 || string(fallback.ReferencedMessage) == "null" {
+		return nil, errors.New("checkpoint component was not in the message or its reference")
+	}
+
+	referenced, err := decodeDiscordMessage(fallback.ReferencedMessage)
+	if err != nil {
+		return nil, err
+	}
+	message.ReferencedMessage = referenced
+	return message, nil
+}
+
+func messageDecodeError(rawMessage []byte, decodeErr error) error {
+	id, err := messageID(rawMessage)
+	if err != nil {
+		return err
+	}
+	return fmt.Errorf("failed to decode Discord message %s: %w", id, decodeErr)
+}
+
+func messageID(rawMessage []byte) (string, error) {
+	var identity struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rawMessage, &identity); err != nil {
+		return "", err
+	}
+	return identity.ID, nil
+}
+
+func hasCheckpointComponent(rawMessage []byte) (bool, error) {
+	var message struct {
+		Components []struct {
+			Type int `json:"type"`
+		} `json:"components"`
+	}
+	if err := json.Unmarshal(rawMessage, &message); err != nil {
+		return false, err
+	}
+	for _, component := range message.Components {
+		if component.Type == 20 {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func discordRequest(
 	ctx context.Context,
-	request func(...discordgo.RequestOption) (T, error),
-) (T, error) {
-	var zero T
+	request func(...discordgo.RequestOption) error,
+) error {
 	for {
-		resultChannel := make(chan discordResult[T], 1)
+		result := make(chan error, 1)
 		go func() {
-			value, err := request(
+			result <- request(
 				discordgo.WithContext(ctx),
 				discordgo.WithRetryOnRatelimit(false),
 			)
-			resultChannel <- discordResult[T]{value: value, err: err}
 		}()
 
-		var result discordResult[T]
+		var err error
 		select {
 		case <-ctx.Done():
-			return zero, ctx.Err()
-		case result = <-resultChannel:
+			return ctx.Err()
+		case err = <-result:
 		}
 
 		var rateLimitError *discordgo.RateLimitError
-		if !errors.As(result.err, &rateLimitError) {
-			return result.value, result.err
+		if !errors.As(err, &rateLimitError) {
+			return err
 		}
 
 		logger.Warn("Discord rate limit reached", "retry_after", rateLimitError.RetryAfter)
@@ -302,7 +452,7 @@ func discordRequest[T any](
 			if !timer.Stop() {
 				<-timer.C
 			}
-			return zero, ctx.Err()
+			return ctx.Err()
 		case <-timer.C:
 		}
 	}
