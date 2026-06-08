@@ -9,7 +9,7 @@ require (
 	github.com/ikawaha/kagome-dict/uni v1.2.6
 	github.com/jinzhu/gorm v1.9.16
 	github.com/lib/pq v1.12.3
-	github.com/mattn/go-sqlite3 v1.14.44
+	github.com/mattn/go-sqlite3 v1.14.45
 )
 
 require (
